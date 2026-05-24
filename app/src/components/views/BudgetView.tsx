@@ -5,6 +5,10 @@ import YoYBarChart from '@/components/charts/YoYBarChart';
 import FiscalLineChart from '@/components/charts/FiscalLineChart';
 import { api } from '@/lib/api';
 import type { MinistryRow, RevenueRow, ExpenditureRow, CapexRow, GdpCompRow, FiscalRow } from '@/lib/api';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 
 interface BudgetData {
   min25: MinistryRow[]; min26be: MinistryRow[]; min26re: MinistryRow[]; min27: MinistryRow[];
@@ -69,6 +73,31 @@ const abbr = (name: string) => name
   .replace('Health & Family Welfare', 'Health')
   .replace('Women & Child Development', 'WCD');
 
+const REV_TREND = [
+  { yr: 'FY21', income: 4.59, corp: 4.46, gst: 5.15, borrow: 18.66, nontax: 2.11, excise: 3.61, customs: 1.12, capital: 0.46 },
+  { yr: 'FY22', income: 6.15, corp: 6.35, gst: 6.75, borrow: 14.17, nontax: 3.14, excise: 3.94, customs: 1.89, capital: 1.00 },
+  { yr: 'FY23', income: 8.15, corp: 8.35, gst: 8.54, borrow: 17.59, nontax: 2.62, excise: 3.20, customs: 2.10, capital: 0.84 },
+  { yr: 'FY24', income: 10.22, corp: 9.23, gst: 9.57, borrow: 17.61, nontax: 3.76, excise: 3.04, customs: 2.19, capital: 0.56 },
+  { yr: 'FY25', income: 12.57, corp: 9.80, gst: 10.62, borrow: 15.70, nontax: 5.31, excise: 3.05, customs: 2.35, capital: 0.59 },
+  { yr: 'FY26 ★', income: 13.12, corp: 11.09, gst: 10.46, borrow: 15.58, nontax: 6.68, excise: 3.37, customs: 2.58, capital: 0.64 },
+  { yr: 'FY27 BE', income: 14.66, corp: 12.31, gst: 10.19, borrow: 16.96, nontax: 6.66, excise: 3.89, customs: 2.71, capital: 1.18 },
+];
+
+const REV_TREND_PCT = REV_TREND.map(row => {
+  const total = row.income + row.corp + row.gst + row.borrow + row.nontax + row.excise + row.customs + row.capital;
+  const p = (v: number) => +((v / total * 100).toFixed(1));
+  return { yr: row.yr, income: p(row.income), corp: p(row.corp), gst: p(row.gst),
+           borrow: p(row.borrow), nontax: p(row.nontax), excise: p(row.excise),
+           customs: p(row.customs), capital: p(row.capital) };
+});
+
+const REV_TREND_GRP = REV_TREND.map(row => {
+  const total = row.income + row.corp + row.gst + row.borrow + row.nontax + row.excise + row.customs + row.capital;
+  const p = (v: number) => +((v / total * 100).toFixed(1));
+  return { yr: row.yr, consumer: p(row.income + row.gst + row.excise), corp: p(row.corp),
+           borrow: p(row.borrow), nontax: p(row.nontax), customs: p(row.customs), capital: p(row.capital) };
+});
+
 const lakh = (n: number) => Math.round(n / 100000 * 100) / 100;
 
 export default function BudgetView() {
@@ -77,6 +106,8 @@ export default function BudgetView() {
   const [loadErr, setLoadErr] = useState(false);
   const [consumerExpanded, setConsumerExpanded] = useState(false);
   const [welfareExpanded, setWelfareExpanded] = useState(false);
+  const [trendGrouped, setTrendGrouped] = useState(true);
+  const [hiddenLines, setHiddenLines] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     Promise.all([
@@ -106,6 +137,7 @@ export default function BudgetView() {
   );
 
   const { min25, min26be, min26re, min27, rev26, rev27, exp26, exp27, cap26, cap27, gdpComp: SECTOR_SPEND_GDPCOMP, fiscal: FISCAL_TREND } = budgetData!;
+
   const BUDGET_DATA = min26be;
   const REVENUE_SOURCES = rev26;
   const EXPENDITURE_SECTORS = exp26;
@@ -203,15 +235,23 @@ export default function BudgetView() {
           ]}
         />
         <Rule title="Budget at a Glance — FY 2025-26 (Revised Estimates)" />
+        {(() => {
+          const f26 = FISCAL_TREND.find(x => x.yr === 'FY26')!;
+          const interest = exp26.find(e => e.sector.includes('Interest'))!;
+          const capex    = exp26.find(e => e.sector.includes('Capital'))!;
+          const interestPct = f26 ? Math.round(interest.amt / f26.exp * 1000) / 10 : 0;
+          const capexGdpPct = capex ? (capex.amt / 100000 / 353 * 100).toFixed(1) : '—';
+          const stats = f26 ? [
+            { val: `₹${lakh(f26.revenue).toFixed(2)}L Cr`, lbl: 'Total Revenue Receipts', sub: 'Non-debt (FY26 RE)',              bad: false },
+            { val: `₹${lakh(f26.exp).toFixed(2)}L Cr`,     lbl: 'Total Expenditure (RE)', sub: 'Revised Estimates',               bad: false },
+            { val: `₹${lakh(f26.deficit_abs).toFixed(2)}L Cr`, lbl: 'Fiscal Deficit',     sub: 'Financed via borrowing',          bad: true  },
+            { val: `${f26.deficit}% GDP`,                   lbl: 'Deficit as % of GDP',   sub: 'RE: Target maintained',           bad: true  },
+            { val: `₹${lakh(capex.amt).toFixed(2)}L Cr`,   lbl: 'Capital Expenditure',    sub: `RE; ${capexGdpPct}% of GDP`,      bad: false },
+            { val: `₹${lakh(interest.amt).toFixed(2)}L Cr`,lbl: 'Interest Payments',      sub: `${interestPct}% of all expenditure`, bad: true },
+          ] : [];
+          return (
         <div className="stat-grid" style={{ marginBottom: 20 }}>
-          {[
-            { val: '₹33.42L Cr', lbl: 'Total Revenue Receipts', sub: 'Non-debt (FY26 RE)',       bad: false },
-            { val: '₹49.65L Cr', lbl: 'Total Expenditure (RE)', sub: 'Revised Estimates',         bad: false },
-            { val: '₹15.58L Cr', lbl: 'Fiscal Deficit',         sub: 'Financed via borrowing',    bad: true  },
-            { val: '4.4% GDP',   lbl: 'Deficit as % of GDP',    sub: 'RE: Target maintained',     bad: true  },
-            { val: '₹10.96L Cr', lbl: 'Capital Expenditure',    sub: 'RE; 2.9% of GDP',           bad: false },
-            { val: '₹12.74L Cr', lbl: 'Interest Payments',      sub: '25.7% of all expenditure',  bad: true  },
-          ].map(k => (
+          {stats.map(k => (
             <div key={k.lbl} className="stat-cell">
               <div className="stat-val" style={{ '--sc': k.bad ? T.red : T.green, fontSize: 20 }}>{k.val}</div>
               <div className="stat-label">{k.lbl}</div>
@@ -219,7 +259,82 @@ export default function BudgetView() {
             </div>
           ))}
         </div>
+          );
+        })()}
         <Rule title="Money Flow — Revenue In vs Expenditure Out" />
+        <div style={{ border: `1px solid ${T.rule}`, background: T.paper2, marginBottom: 12 }}>
+          <div style={{ padding: '8px 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontFamily: "'Libre Baskerville',serif", fontSize: 8, fontWeight: 700, color: T.muted, letterSpacing: 1 }}>
+              REVENUE SOURCES — SHARE OF TOTAL RECEIPTS (%) · FY21–FY27
+            </div>
+            <button
+              onClick={() => { setTrendGrouped(g => !g); setHiddenLines(new Set()); }}
+              style={{ fontFamily: "'Libre Baskerville',serif", fontSize: 7, fontWeight: 700, letterSpacing: 1,
+                       border: `1px solid ${T.rule}`, background: trendGrouped ? T.ink : 'transparent',
+                       color: trendGrouped ? T.paper : T.muted, padding: '3px 8px', cursor: 'pointer' }}
+            >
+              {trendGrouped ? 'GROUPED' : 'INDIVIDUAL'}
+            </button>
+          </div>
+          <ResponsiveContainer width="100%" height={560}>
+            <LineChart data={(trendGrouped ? REV_TREND_GRP : REV_TREND_PCT) as object[]} margin={{ top: 8, right: 24, left: 8, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#C8BBA8" vertical={false} />
+              <XAxis dataKey="yr" tick={{ fontFamily: "'Libre Baskerville',serif", fontSize: 9, fill: '#7A6349' }} axisLine={{ stroke: '#C8BBA8' }} tickLine={false} />
+              <YAxis tick={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fill: '#9B8E7D' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} width={34} />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  const sorted = [...payload].sort((a, b) => Number(b.value) - Number(a.value));
+                  return (
+                    <div style={{ background: '#F4EFE2', border: '1px solid #C8BBA8', padding: '8px 12px', fontFamily: "'Lora',serif", fontSize: 10 }}>
+                      <div style={{ fontFamily: "'Libre Baskerville',serif", fontWeight: 700, fontSize: 10, marginBottom: 6 }}>{label}</div>
+                      {sorted.map(entry => (
+                        <div key={String(entry.dataKey)} style={{ color: entry.color, marginBottom: 3 }}>
+                          {entry.name} : {Number(entry.value).toFixed(1)}% of receipts
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }}
+              />
+              <Legend
+                wrapperStyle={{ fontFamily: "'Lora',serif", fontSize: 9, paddingTop: 12, paddingBottom: 12, cursor: 'pointer' }}
+                iconSize={8}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onClick={(payload: any) => {
+                  const key = payload?.dataKey;
+                  if (!key) return;
+                  setHiddenLines(prev => {
+                    const next = new Set(prev);
+                    next.has(key) ? next.delete(key) : next.add(key);
+                    return next;
+                  });
+                }}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={(value: string, entry: any) =>
+                  <span style={{ opacity: hiddenLines.has(entry?.dataKey ?? '') ? 0.35 : 1 }}>{value}</span>
+                }
+              />
+              {trendGrouped ? <>
+                <Line type="monotone" dataKey="consumer" name="Consumer Taxes" stroke={T.amber}   strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} hide={hiddenLines.has('consumer')} />
+                <Line type="monotone" dataKey="corp"     name="Corp Tax"       stroke={T.green}   strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} hide={hiddenLines.has('corp')} />
+                <Line type="monotone" dataKey="borrow"   name="Borrowings"     stroke={T.red}     strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} strokeDasharray="4 2" hide={hiddenLines.has('borrow')} />
+                <Line type="monotone" dataKey="nontax"   name="Non-Tax"        stroke="#4E8C6F"   strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} hide={hiddenLines.has('nontax')} />
+                <Line type="monotone" dataKey="customs"  name="Customs"        stroke={T.muted}   strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} hide={hiddenLines.has('customs')} />
+                <Line type="monotone" dataKey="capital"  name="Non-Debt Cap"   stroke="#A8836E"   strokeWidth={1}   dot={{ r: 2 }} activeDot={{ r: 3.5 }} strokeDasharray="2 2" hide={hiddenLines.has('capital')} />
+              </> : <>
+                <Line type="monotone" dataKey="income"  name="Income Tax"   stroke={T.green}   strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} hide={hiddenLines.has('income')} />
+                <Line type="monotone" dataKey="corp"    name="Corp Tax"     stroke={T.amber}   strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} hide={hiddenLines.has('corp')} />
+                <Line type="monotone" dataKey="gst"     name="GST"          stroke={T.saffron} strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} hide={hiddenLines.has('gst')} />
+                <Line type="monotone" dataKey="borrow"  name="Borrowings"   stroke={T.red}     strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} strokeDasharray="4 2" hide={hiddenLines.has('borrow')} />
+                <Line type="monotone" dataKey="nontax"  name="Non-Tax"      stroke="#4E8C6F"   strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} hide={hiddenLines.has('nontax')} />
+                <Line type="monotone" dataKey="excise"  name="Excise"       stroke={T.ink}     strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} hide={hiddenLines.has('excise')} />
+                <Line type="monotone" dataKey="customs" name="Customs"      stroke={T.muted}   strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} hide={hiddenLines.has('customs')} />
+                <Line type="monotone" dataKey="capital" name="Non-Debt Cap" stroke="#A8836E"   strokeWidth={1}   dot={{ r: 2 }} activeDot={{ r: 3.5 }} strokeDasharray="2 2" hide={hiddenLines.has('capital')} />
+              </>}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
           <div style={{ border: `2px solid ${T.ink}`, background: T.paper }}>
             <div style={{ background: T.green, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>₹49.65L CRORE IN ▼ (FY26 RE)</div>
