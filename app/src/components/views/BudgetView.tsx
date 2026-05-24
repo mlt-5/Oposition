@@ -75,6 +75,8 @@ export default function BudgetView() {
   const [tab, setTab] = useState('overview');
   const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
   const [loadErr, setLoadErr] = useState(false);
+  const [consumerExpanded, setConsumerExpanded] = useState(false);
+  const [welfareExpanded, setWelfareExpanded] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -109,6 +111,43 @@ export default function BudgetView() {
   const EXPENDITURE_SECTORS = exp26;
   const CAPEX_BREAKDOWN = cap26;
   const fmt2 = (n: number) => n >= 100000 ? `₹${(n / 100000).toFixed(2)}L Cr` : `₹${(n / 1000).toFixed(0)}K Cr`;
+
+  const isConsumer = (r: RevenueRow) => (r.type === 'Indirect Tax' && !r.name.includes('Customs')) || (r.type === 'Direct Tax' && r.name.includes('Income'));
+  const isCorporate = (r: RevenueRow) => r.type === 'Direct Tax' && r.name.includes('Corporation');
+  const consumerItems = REVENUE_SOURCES.filter(isConsumer);
+  const consumerAmt   = consumerItems.reduce((s, r) => s + r.amt, 0);
+  const consumerPct   = Math.round(consumerItems.reduce((s, r) => s + r.pct, 0) * 10) / 10;
+  const corporateItem = REVENUE_SOURCES.find(isCorporate)!;
+  const otherItems    = REVENUE_SOURCES.filter(r => !isConsumer(r) && !isCorporate(r));
+
+  type InRow = { kind: 'consumer' } | { kind: 'item'; row: RevenueRow; label?: string };
+  const inRows: InRow[] = [
+    { kind: 'consumer' },
+    ...(corporateItem ? [{ kind: 'item' as const, row: corporateItem, label: 'Corporation Tax' }] : []),
+    ...otherItems.map(r => ({ kind: 'item' as const, row: r })),
+  ];
+  const sortedInRows = [...inRows].sort((a, b) => {
+    const amtA = a.kind === 'consumer' ? consumerAmt : a.row.amt;
+    const amtB = b.kind === 'consumer' ? consumerAmt : b.row.amt;
+    return amtB - amtA;
+  });
+
+  const isWelfare = (e: ExpenditureRow) => e.type === 'Welfare';
+  const welfareItems  = EXPENDITURE_SECTORS.filter(isWelfare);
+  const welfareAmt    = welfareItems.reduce((s, e) => s + e.amt, 0);
+  const welfarePct    = Math.round(welfareItems.reduce((s, e) => s + e.pct, 0) * 10) / 10;
+  const standaloneExp = EXPENDITURE_SECTORS.filter(e => !isWelfare(e));
+
+  type OutRow = { kind: 'welfare' } | { kind: 'item'; row: ExpenditureRow };
+  const outRows: OutRow[] = [
+    { kind: 'welfare' },
+    ...standaloneExp.map(e => ({ kind: 'item' as const, row: e })),
+  ];
+  const sortedOutRows = [...outRows].sort((a, b) => {
+    const amtA = a.kind === 'welfare' ? welfareAmt : a.row.amt;
+    const amtB = b.kind === 'welfare' ? welfareAmt : b.row.amt;
+    return amtB - amtA;
+  });
 
   // ─── Chart data ───────────────────────────────────────────────────────────
 
@@ -184,17 +223,55 @@ export default function BudgetView() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
           <div style={{ border: `2px solid ${T.ink}`, background: T.paper }}>
             <div style={{ background: T.green, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>₹49.65L CRORE IN ▼ (FY26 RE)</div>
-            {REVENUE_SOURCES.map((r, i) => {
-              const color = r.type === 'Borrowings' ? T.red : r.type === 'Direct Tax' ? T.green : r.type === 'Indirect Tax' ? T.amber : r.type === 'Capital' ? T.ink : T.muted;
+            {sortedInRows.map((item, i) => {
+              if (item.kind === 'consumer') return (
+                <div key="consumer">
+                  <div
+                    onClick={() => setConsumerExpanded(x => !x)}
+                    style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ fontSize: 9, color: T.amber, transition: 'transform 0.2s', display: 'inline-block', transform: consumerExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                        Consumer Taxes
+                      </span>
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.amber }}>{fmt2(consumerAmt)}</span>
+                    </div>
+                    <div className="pbar"><div className="pfill" style={{ width: `${Math.min(consumerPct, 100)}%`, background: T.amber }} /></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>Income Tax + GST + Excise</span>
+                      <span className="mono" style={{ fontSize: 9, color: T.muted }}>{consumerPct}% of budget</span>
+                    </div>
+                  </div>
+                  {consumerExpanded && consumerItems.map((r, j) => {
+                    const c = r.type === 'Indirect Tax' ? T.amber : T.green;
+                    return (
+                      <div key={j} style={{ padding: '8px 14px 8px 28px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                          <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{r.name.replace(' (Personal)', '').replace(' (CGST + Comp. Cess)', '')}</span>
+                          <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: c }}>{fmt2(r.amt)}</span>
+                        </div>
+                        <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${Math.min(r.pct, 100)}%`, background: c }} /></div>
+                        <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{r.pct}% of budget</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+              const r = item.row;
+              const isCorp = !!item.label;
+              const color = isCorp ? T.green : r.type === 'Borrowings' ? T.red : r.type === 'Capital' ? T.ink : r.type === 'Indirect Tax' ? T.amber : T.muted;
+              const displayName = isCorp ? 'Corporation Tax' : r.name.replace(' (Non-Debt)', '').replace(' (Deficit Financing)', '');
+              const displayType = isCorp ? 'Corporate Tax' : r.name.includes('Customs') ? 'Trade Tax — incidence unclear' : r.type;
               return (
                 <div key={i} style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink }}>{r.name.replace(' (Personal)', '').replace(' (CGST + Comp. Cess)', '').replace(' (Non-Debt)', '').replace(' (Deficit Financing)', '')}</span>
+                    <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink }}>{displayName}</span>
                     <span className="mono" style={{ fontSize: 12, fontWeight: 700, color }}>{fmt2(r.amt)}</span>
                   </div>
                   <div className="pbar"><div className="pfill" style={{ width: `${Math.min(r.pct, 100)}%`, background: color }} /></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>{r.type}</span>
+                    <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>{displayType}</span>
                     <span className="mono" style={{ fontSize: 9, color: T.muted }}>{r.pct}% of budget</span>
                   </div>
                 </div>
@@ -206,19 +283,53 @@ export default function BudgetView() {
           </div>
           <div style={{ border: `2px solid ${T.ink}`, background: T.paper }}>
             <div style={{ background: T.red, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>₹49.65L CRORE OUT ▲ (FY26 RE)</div>
-            {EXPENDITURE_SECTORS.map((e, i) => (
-              <div key={i} style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink }}>{e.sector.replace(' (Food+Fert+LPG)', '').replace(' (Direct)', '')}</span>
-                  <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: e.color }}>{fmt2(e.amt)}</span>
+            {sortedOutRows.map((item, i) => {
+              if (item.kind === 'welfare') return (
+                <div key="welfare">
+                  <div
+                    onClick={() => setWelfareExpanded(x => !x)}
+                    style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ fontSize: 9, color: T.amber, transition: 'transform 0.2s', display: 'inline-block', transform: welfareExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                        Social Welfare
+                      </span>
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.amber }}>{fmt2(welfareAmt)}</span>
+                    </div>
+                    <div className="pbar"><div className="pfill" style={{ width: `${Math.min(welfarePct, 100)}%`, background: T.amber }} /></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>Subsidies + Rural Dev + Agriculture + Education + Health</span>
+                      <span className="mono" style={{ fontSize: 9, color: T.muted }}>{welfarePct}% of budget</span>
+                    </div>
+                  </div>
+                  {welfareExpanded && welfareItems.map((e, j) => (
+                    <div key={j} style={{ padding: '8px 14px 8px 28px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{e.sector.replace(' (Food+Fert+LPG)', '').replace(' (Direct)', '')}</span>
+                        <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: e.color }}>{fmt2(e.amt)}</span>
+                      </div>
+                      <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${Math.min(e.pct, 100)}%`, background: e.color }} /></div>
+                      <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{e.pct}% of budget</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="pbar"><div className="pfill" style={{ width: `${e.pct}%`, background: e.color }} /></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>{e.type}</span>
-                  <span className="mono" style={{ fontSize: 9, color: T.muted }}>{e.pct}% of budget</span>
+              );
+              const e = item.row;
+              return (
+                <div key={i} style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink }}>{e.sector.replace(' (Food+Fert+LPG)', '').replace(' (Direct)', '')}</span>
+                    <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: e.color }}>{fmt2(e.amt)}</span>
+                  </div>
+                  <div className="pbar"><div className="pfill" style={{ width: `${e.pct}%`, background: e.color }} /></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>{e.type}</span>
+                    <span className="mono" style={{ fontSize: 9, color: T.muted }}>{e.pct}% of budget</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
               <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>* Capital Expenditure ₹10.96L Cr is government-wide and overlaps with Defence capital outlay</span>
             </div>
