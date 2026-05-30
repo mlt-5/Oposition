@@ -148,6 +148,49 @@ const EFF_CAPEX = {
   ],
 };
 
+const EXP_CLASS_YEARS = ['2020-21', '2021-22', '2022-23', '2023-24', '2024-25', '2025-26 RE ★'];
+const CLASS_CHART_DATA = EXP_CLASS_YEARS.map((yr, k) => {
+  const [ci0, ci1, ci2] = EXP_CLASSIFICATION.centre.items;
+  const [ti0, ti1, ti2] = EXP_CLASSIFICATION.transfers.items;
+  if (k < 5) {
+    const t = EXP_CLASSIFICATION.reTotals[k];
+    const p = (v: number) => +(v / t * 100).toFixed(1);
+    return {
+      yr,
+      establishment_pct: p(ci0.re[k]),   establishment_amt: ci0.re[k],
+      central_schemes_pct: p(ci1.re[k]), central_schemes_amt: ci1.re[k],
+      other_central_pct: p(ci2.re[k]),   other_central_amt: ci2.re[k],
+      interest_pct: p(ci2.sub!.re[k]),   interest_amt: ci2.sub!.re[k],
+      css_pct: p(ti0.re[k]),             css_amt: ti0.re[k],
+      fin_commission_pct: p(ti1.re[k]),  fin_commission_amt: ti1.re[k],
+      other_grants_pct: p(ti2.re[k]),    other_grants_amt: ti2.re[k],
+    };
+  }
+  return {
+    yr,
+    establishment_pct: ci0.pct,   establishment_amt: ci0.amt,
+    central_schemes_pct: ci1.pct, central_schemes_amt: ci1.amt,
+    other_central_pct: ci2.pct,   other_central_amt: ci2.amt,
+    interest_pct: ci2.sub!.pct,   interest_amt: ci2.sub!.amt,
+    css_pct: ti0.pct,             css_amt: ti0.amt,
+    fin_commission_pct: ti1.pct,  fin_commission_amt: ti1.amt,
+    other_grants_pct: ti2.pct,    other_grants_amt: ti2.amt,
+  };
+});
+
+const CAPEX_CHART_DATA = EXP_CLASS_YEARS.map((yr, k) => {
+  const [cap, grants] = EFF_CAPEX.items;
+  if (k < 5) {
+    const t = EXP_CLASSIFICATION.reTotals[k];
+    return {
+      yr,
+      capex_pct: +(cap.re[k] / t * 100).toFixed(1),    capex_amt: cap.re[k],
+      grants_pct: +(grants.re[k] / t * 100).toFixed(1), grants_amt: grants.re[k],
+    };
+  }
+  return { yr, capex_pct: cap.pct, capex_amt: cap.amt, grants_pct: grants.pct, grants_amt: grants.amt };
+});
+
 const miSubsidyAmt = 429735;
 const miSubsidyRe = [595355, 433108, 521585, 413466, 383419]; // FY21–FY25
 const miSubsidyItems = [
@@ -647,6 +690,49 @@ export default function BudgetView() {
         <Rule title="How Expenditure Is Structured — 2020-2021 to 2025-2026 RE" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
           <div style={{ background: T.ink, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
+            {spendPct ? 'EXPENDITURE COMPOSITION — % OF TOTAL EXPENDITURE (2020-21 TO 2025-26 RE)' : 'EXPENDITURE COMPOSITION — ₹ CRORE (2020-21 TO 2025-26 RE)'}
+          </div>
+          <div style={{ padding: '16px 0 8px' }}>
+            <ResponsiveContainer width="100%" height={480}>
+              <LineChart data={CLASS_CHART_DATA} margin={{ top: 8, right: 24, left: 8, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#C8BBA8" vertical={false} />
+                <XAxis dataKey="yr" tick={{ fontFamily: "'Libre Baskerville',serif", fontSize: 9, fill: '#7A6349' }} axisLine={{ stroke: '#C8BBA8' }} tickLine={false} />
+                <YAxis tick={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fill: '#9B8E7D' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => spendPct ? `${v}%` : fmt2(v)} width={56} />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const sorted = [...payload].sort((a, b) => Number(b.value) - Number(a.value));
+                    return (
+                      <div style={{ background: '#F4EFE2', border: '1px solid #C8BBA8', padding: '8px 12px', fontFamily: "'Lora',serif", fontSize: 10 }}>
+                        <div style={{ fontFamily: "'Libre Baskerville',serif", fontWeight: 700, fontSize: 10, marginBottom: 6 }}>{label}</div>
+                        {sorted.map(entry => (
+                          <div key={String(entry.dataKey)} style={{ color: entry.color, marginBottom: 3 }}>
+                            {entry.name} : {spendPct ? `${Number(entry.value).toFixed(1)}% of expenditure` : fmt2(Number(entry.value))}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }}
+                />
+                <Legend wrapperStyle={{ fontFamily: "'Lora',serif", fontSize: 9, paddingTop: 12, paddingBottom: 12 }} iconSize={8} />
+                <Line type="monotone" dataKey={spendPct ? 'establishment_pct'   : 'establishment_amt'}   name="I. Establishment"        stroke="#374151" strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey={spendPct ? 'central_schemes_pct' : 'central_schemes_amt'} name="II. Central Schemes"     stroke={T.green}  strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey={spendPct ? 'other_central_pct'   : 'other_central_amt'}   name="III. Other Central"      stroke={T.red}    strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey={spendPct ? 'interest_pct'        : 'interest_amt'}        name="└ Interest"              stroke={T.red}    strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} strokeDasharray="4 2" />
+                <Line type="monotone" dataKey={spendPct ? 'css_pct'             : 'css_amt'}             name="IV. Cent. Spon. Schemes" stroke={T.amber}  strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey={spendPct ? 'fin_commission_pct'  : 'fin_commission_amt'}  name="V. Finance Commission"   stroke="#4338CA"  strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey={spendPct ? 'other_grants_pct'    : 'other_grants_amt'}    name="VI. Other Grants"        stroke={T.muted}  strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
+            <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>
+              {spendPct ? '% of total expenditure for each year. Interest Payments (dashed) is a sub-component of III.' : '₹ Crore. Interest Payments (dashed) is a sub-component of III.'}
+            </span>
+          </div>
+        </div>
+        <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
+          <div style={{ background: T.ink, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
             EXPENDITURE CLASSIFICATION — REVISED ESTIMATES (₹ CRORE)
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -721,6 +807,44 @@ export default function BudgetView() {
           </div>
         </div>
         <Rule title="Effective Capital Expenditure — 2020-2021 to 2025-2026 RE" />
+        <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
+          <div style={{ background: T.ink, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
+            {spendPct ? 'EFFECTIVE CAPEX TREND — % OF TOTAL EXPENDITURE (2020-21 TO 2025-26 RE)' : 'EFFECTIVE CAPEX TREND — ₹ CRORE (2020-21 TO 2025-26 RE)'}
+          </div>
+          <div style={{ padding: '16px 0 8px' }}>
+            <ResponsiveContainer width="100%" height={480}>
+              <LineChart data={CAPEX_CHART_DATA} margin={{ top: 8, right: 24, left: 8, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#C8BBA8" vertical={false} />
+                <XAxis dataKey="yr" tick={{ fontFamily: "'Libre Baskerville',serif", fontSize: 9, fill: '#7A6349' }} axisLine={{ stroke: '#C8BBA8' }} tickLine={false} />
+                <YAxis tick={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fill: '#9B8E7D' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => spendPct ? `${v}%` : fmt2(v)} width={56} />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const sorted = [...payload].sort((a, b) => Number(b.value) - Number(a.value));
+                    return (
+                      <div style={{ background: '#F4EFE2', border: '1px solid #C8BBA8', padding: '8px 12px', fontFamily: "'Lora',serif", fontSize: 10 }}>
+                        <div style={{ fontFamily: "'Libre Baskerville',serif", fontWeight: 700, fontSize: 10, marginBottom: 6 }}>{label}</div>
+                        {sorted.map(entry => (
+                          <div key={String(entry.dataKey)} style={{ color: entry.color, marginBottom: 3 }}>
+                            {entry.name} : {spendPct ? `${Number(entry.value).toFixed(1)}% of expenditure` : fmt2(Number(entry.value))}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }}
+                />
+                <Legend wrapperStyle={{ fontFamily: "'Lora',serif", fontSize: 9, paddingTop: 12, paddingBottom: 12 }} iconSize={8} />
+                <Line type="monotone" dataKey={spendPct ? 'capex_pct'  : 'capex_amt'}  name="Capital Expenditure"       stroke={T.green} strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey={spendPct ? 'grants_pct' : 'grants_amt'} name="Grants for Capital Assets" stroke={T.amber} strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
+            <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>
+              {spendPct ? '% of total expenditure for each year.' : '₹ Crore.'}
+            </span>
+          </div>
+        </div>
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
           <div style={{ background: T.ink, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
             EFFECTIVE CAPITAL EXPENDITURE — REVISED ESTIMATES (₹ CRORE)
