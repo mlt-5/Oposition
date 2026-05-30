@@ -210,6 +210,7 @@ export default function BudgetView() {
   const [govExpanded, setGovExpanded] = useState(false);
   const [trendGrouped, setTrendGrouped] = useState(true);
   const [hiddenLines, setHiddenLines] = useState<Set<string>>(new Set());
+  const [spendPct, setSpendPct] = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -245,6 +246,7 @@ export default function BudgetView() {
   const EXPENDITURE_SECTORS = exp26;
   const CAPEX_BREAKDOWN = cap26;
   const fmt2 = (n: number) => n >= 100000 ? `₹${(n / 100000).toFixed(2)}L Cr` : `₹${(n / 1000).toFixed(0)}K Cr`;
+  const spendFmt = (v: number, total: number) => spendPct ? (v / total * 100).toFixed(1) + '%' : fmt2(v);
   const FY_SHORT: Record<string, string> = {
     'FY19': '2018-19', 'FY20': '2019-20', 'FY21': '2020-21', 'FY22': '2021-22',
     'FY23': '2022-23', 'FY24': '2023-24', 'FY25': '2024-25', 'FY26': '2025-26',
@@ -636,6 +638,12 @@ export default function BudgetView() {
 
       {/* ── SPENDING TYPE ── */}
       {tab === 'classification' && <>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <div style={{ display: 'flex', border: `1px solid ${T.ink}`, overflow: 'hidden' }}>
+            <button onClick={() => setSpendPct(false)} style={{ padding: '4px 14px', fontSize: 11, fontFamily: 'monospace', background: !spendPct ? T.ink : 'transparent', color: !spendPct ? '#fff' : T.ink, border: 'none', cursor: 'pointer' }}>₹ Amounts</button>
+            <button onClick={() => setSpendPct(true)} style={{ padding: '4px 14px', fontSize: 11, fontFamily: 'monospace', background: spendPct ? T.ink : 'transparent', color: spendPct ? '#fff' : T.ink, border: 'none', cursor: 'pointer', borderLeft: `1px solid ${T.ink}` }}>% Share</button>
+          </div>
+        </div>
         <Rule title="How Expenditure Is Structured — 2020-2021 to 2025-2026 RE" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
           <div style={{ background: T.ink, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
@@ -656,26 +664,26 @@ export default function BudgetView() {
                 <tr style={{ background: T.paper2 }}>
                   <td style={{ padding: '7px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.red, borderLeft: `4px solid ${T.red}`, borderBottom: `1px solid ${T.rule}` }}>A. CENTRE'S EXPENDITURE</td>
                   {EXP_CLASSIFICATION.centre.re.map((v, k) => (
-                    <td key={k} className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.ink, borderBottom: `1px solid ${T.rule}` }}>{fmt2(v)}</td>
+                    <td key={k} className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.ink, borderBottom: `1px solid ${T.rule}` }}>{spendFmt(v, EXP_CLASSIFICATION.reTotals[k])}</td>
                   ))}
-                  <td className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.red, borderBottom: `1px solid ${T.rule}` }}>{fmt2(EXP_CLASSIFICATION.centre.total)}</td>
+                  <td className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.red, borderBottom: `1px solid ${T.rule}` }}>{spendPct ? EXP_CLASSIFICATION.centre.pct.toFixed(1)+'%' : fmt2(EXP_CLASSIFICATION.centre.total)}</td>
                 </tr>
                 {EXP_CLASSIFICATION.centre.items.map((item, j) => (
                   <Fragment key={j}>
                     <tr style={{ borderBottom: item.sub ? 'none' : `1px solid ${T.rule}` }}>
                       <td style={{ padding: '6px 14px 6px 28px', fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{item.label}</td>
                       {item.re.map((v, k) => (
-                        <td key={k} className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{fmt2(v)}</td>
+                        <td key={k} className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{spendFmt(v, EXP_CLASSIFICATION.reTotals[k])}</td>
                       ))}
-                      <td className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</td>
+                      <td className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{spendPct ? item.pct.toFixed(1)+'%' : fmt2(item.amt)}</td>
                     </tr>
                     {item.sub && (
                       <tr style={{ borderBottom: `1px solid ${T.rule}`, background: T.paper2 }}>
                         <td style={{ padding: '5px 14px 5px 44px', fontFamily: "'Lora',serif", fontSize: 10, fontStyle: 'italic', color: T.muted }}>└ {item.sub.label}</td>
                         {item.sub.re.map((v, k) => (
-                          <td key={k} className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 9, color: T.muted }}>{fmt2(v)}</td>
+                          <td key={k} className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 9, color: T.muted }}>{spendFmt(v, EXP_CLASSIFICATION.reTotals[k])}</td>
                         ))}
-                        <td className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.muted }}>{fmt2(item.sub.amt)}</td>
+                        <td className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.muted }}>{spendPct ? item.sub.pct.toFixed(1)+'%' : fmt2(item.sub.amt)}</td>
                       </tr>
                     )}
                   </Fragment>
@@ -683,25 +691,25 @@ export default function BudgetView() {
                 <tr style={{ background: T.paper2 }}>
                   <td style={{ padding: '7px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.amber, borderLeft: `4px solid ${T.amber}`, borderBottom: `1px solid ${T.rule}`, borderTop: `2px solid ${T.rule}` }}>B. TRANSFERS TO STATES / UTs</td>
                   {EXP_CLASSIFICATION.transfers.re.map((v, k) => (
-                    <td key={k} className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.ink, borderBottom: `1px solid ${T.rule}`, borderTop: `2px solid ${T.rule}` }}>{fmt2(v)}</td>
+                    <td key={k} className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.ink, borderBottom: `1px solid ${T.rule}`, borderTop: `2px solid ${T.rule}` }}>{spendFmt(v, EXP_CLASSIFICATION.reTotals[k])}</td>
                   ))}
-                  <td className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.amber, borderBottom: `1px solid ${T.rule}`, borderTop: `2px solid ${T.rule}` }}>{fmt2(EXP_CLASSIFICATION.transfers.total)}</td>
+                  <td className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.amber, borderBottom: `1px solid ${T.rule}`, borderTop: `2px solid ${T.rule}` }}>{spendPct ? EXP_CLASSIFICATION.transfers.pct.toFixed(1)+'%' : fmt2(EXP_CLASSIFICATION.transfers.total)}</td>
                 </tr>
                 {EXP_CLASSIFICATION.transfers.items.map((item, j) => (
                   <tr key={j} style={{ borderBottom: `1px solid ${T.rule}` }}>
                     <td style={{ padding: '6px 14px 6px 28px', fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{item.label}</td>
                     {item.re.map((v, k) => (
-                      <td key={k} className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{fmt2(v)}</td>
+                      <td key={k} className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{spendFmt(v, EXP_CLASSIFICATION.reTotals[k])}</td>
                     ))}
-                    <td className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</td>
+                    <td className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{spendPct ? item.pct.toFixed(1)+'%' : fmt2(item.amt)}</td>
                   </tr>
                 ))}
                 <tr style={{ background: T.paper2, borderTop: `2px solid ${T.ink}` }}>
                   <td style={{ padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.ink }}>TOTAL</td>
                   {EXP_CLASSIFICATION.reTotals.map((v, k) => (
-                    <td key={k} className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.ink }}>{fmt2(v)}</td>
+                    <td key={k} className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.ink }}>{spendPct ? '100.0%' : fmt2(v)}</td>
                   ))}
-                  <td className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: T.ink }}>{fmt2(EXP_CLASSIFICATION.total)}</td>
+                  <td className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: T.ink }}>{spendPct ? '100.0%' : fmt2(EXP_CLASSIFICATION.total)}</td>
                 </tr>
               </tbody>
             </table>
@@ -736,17 +744,17 @@ export default function BudgetView() {
                       <div style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 9, color: T.muted, marginTop: 2 }}>{item.note}</div>
                     </td>
                     {item.re.map((v, k) => (
-                      <td key={k} className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{fmt2(v)}</td>
+                      <td key={k} className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{spendFmt(v, EXP_CLASSIFICATION.reTotals[k])}</td>
                     ))}
-                    <td className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</td>
+                    <td className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{spendPct ? item.pct.toFixed(1)+'%' : fmt2(item.amt)}</td>
                   </tr>
                 ))}
                 <tr style={{ background: T.paper2, borderTop: `2px solid ${T.ink}` }}>
                   <td style={{ padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.ink }}>TOTAL EFFECTIVE CAPEX</td>
                   {EFF_CAPEX.reTotals.map((v, k) => (
-                    <td key={k} className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.ink }}>{fmt2(v)}</td>
+                    <td key={k} className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.ink }}>{spendFmt(v, EXP_CLASSIFICATION.reTotals[k])}</td>
                   ))}
-                  <td className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: T.ink }}>{fmt2(EFF_CAPEX.total)}</td>
+                  <td className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: T.ink }}>{spendPct ? EFF_CAPEX.pct.toFixed(1)+'%' : fmt2(EFF_CAPEX.total)}</td>
                 </tr>
               </tbody>
             </table>
@@ -780,17 +788,17 @@ export default function BudgetView() {
                       <tr style={{ background: T.paper2 }}>
                         <td style={{ padding: '7px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.amber, borderLeft: `4px solid ${T.amber}`, borderBottom: `1px solid ${T.rule}`, borderTop: `1px solid ${T.rule}` }}>SUBSIDY</td>
                         {miSubsidyRe.map((v, k) => (
-                          <td key={k} className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.ink, borderBottom: `1px solid ${T.rule}`, borderTop: `1px solid ${T.rule}` }}>{fmt2(v)}</td>
+                          <td key={k} className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.ink, borderBottom: `1px solid ${T.rule}`, borderTop: `1px solid ${T.rule}` }}>{spendFmt(v, EXP_CLASSIFICATION.reTotals[k])}</td>
                         ))}
-                        <td className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.amber, borderBottom: `1px solid ${T.rule}`, borderTop: `1px solid ${T.rule}` }}>{fmt2(miSubsidyAmt)}</td>
+                        <td className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.amber, borderBottom: `1px solid ${T.rule}`, borderTop: `1px solid ${T.rule}` }}>{spendPct ? (miSubsidyAmt / EXP_CLASSIFICATION.total * 100).toFixed(1)+'%' : fmt2(miSubsidyAmt)}</td>
                       </tr>
                       {miSubsidyItems.map((e, j) => (
                         <tr key={j} style={{ borderBottom: `1px solid ${T.rule}` }}>
                           <td style={{ padding: '5px 14px 5px 28px', fontFamily: "'Lora',serif", fontSize: 10, fontStyle: 'italic', color: T.muted }}>└ {e.label}</td>
                           {e.re.map((v, k) => (
-                            <td key={k} className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 9, color: T.muted }}>{fmt2(v)}</td>
+                            <td key={k} className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 9, color: T.muted }}>{spendFmt(v, EXP_CLASSIFICATION.reTotals[k])}</td>
                           ))}
-                          <td className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: e.color }}>{fmt2(e.amt)}</td>
+                          <td className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: e.color }}>{spendPct ? e.pct.toFixed(1)+'%' : fmt2(e.amt)}</td>
                         </tr>
                       ))}
                     </Fragment>
@@ -799,12 +807,19 @@ export default function BudgetView() {
                     <tr key={i} style={{ borderBottom: `1px solid ${T.rule}` }}>
                       <td style={{ padding: '6px 14px', fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{item.label}</td>
                       {item.re.map((v, k) => (
-                        <td key={k} className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{v > 0 ? fmt2(v) : '—'}</td>
+                        <td key={k} className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{v > 0 ? spendFmt(v, EXP_CLASSIFICATION.reTotals[k]) : '—'}</td>
                       ))}
-                      <td className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</td>
+                      <td className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{spendPct ? item.pct.toFixed(1)+'%' : fmt2(item.amt)}</td>
                     </tr>
                   );
                 })}
+                <tr style={{ background: T.paper2, borderTop: `2px solid ${T.ink}` }}>
+                  <td style={{ padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.ink }}>TOTAL EXPENDITURE</td>
+                  {EXP_CLASSIFICATION.reTotals.map((v, k) => (
+                    <td key={k} className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.ink }}>{spendPct ? '100.0%' : fmt2(v)}</td>
+                  ))}
+                  <td className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: T.ink }}>{spendPct ? '100.0%' : fmt2(EXP_CLASSIFICATION.total)}</td>
+                </tr>
               </tbody>
             </table>
           </div>
