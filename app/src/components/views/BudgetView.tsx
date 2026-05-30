@@ -73,18 +73,20 @@ const abbr = (name: string) => name
   .replace('Health & Family Welfare', 'Health')
   .replace('Women & Child Development', 'WCD');
 
+// tot = net total receipts (= total expenditure). Source: Budget at a Glance 2026-27 fiscal summary.
+// Tax figures are gross (pre-devolution); tot anchors pct to a consistent denominator matching the IN panel.
 const REV_TREND = [
-  { yr: 'FY21', income: 4.59, corp: 4.46, gst: 5.15, borrow: 18.66, nontax: 2.11, excise: 3.61, customs: 1.12, capital: 0.46 },
-  { yr: 'FY22', income: 6.15, corp: 6.35, gst: 6.75, borrow: 14.17, nontax: 3.14, excise: 3.94, customs: 1.89, capital: 1.00 },
-  { yr: 'FY23', income: 8.15, corp: 8.35, gst: 8.54, borrow: 17.59, nontax: 2.62, excise: 3.20, customs: 2.10, capital: 0.84 },
-  { yr: 'FY24', income: 10.22, corp: 9.23, gst: 9.57, borrow: 17.61, nontax: 3.76, excise: 3.04, customs: 2.19, capital: 0.56 },
-  { yr: 'FY25', income: 12.57, corp: 9.80, gst: 10.62, borrow: 15.70, nontax: 5.31, excise: 3.05, customs: 2.35, capital: 0.59 },
-  { yr: 'FY26 ★', income: 13.12, corp: 11.09, gst: 10.46, borrow: 15.58, nontax: 6.68, excise: 3.37, customs: 2.58, capital: 0.64 },
-  { yr: 'FY27 BE', income: 14.66, corp: 12.31, gst: 10.19, borrow: 16.96, nontax: 6.66, excise: 3.89, customs: 2.71, capital: 1.18 },
+  { yr: 'FY21',   income: 4.59, corp: 4.46, gst: 5.15, borrow: 18.66, nontax: 2.11, excise: 3.61, customs: 1.12, capital: 0.46, tot: 35.02 },
+  { yr: 'FY22',   income: 6.15, corp: 6.35, gst: 6.75, borrow: 14.17, nontax: 3.14, excise: 3.94, customs: 1.89, capital: 1.00, tot: 37.94 },
+  { yr: 'FY23',   income: 8.15, corp: 8.35, gst: 8.54, borrow: 17.59, nontax: 2.62, excise: 3.20, customs: 2.10, capital: 0.84, tot: 41.78 },
+  { yr: 'FY24',   income: 10.22, corp: 9.23, gst: 9.57, borrow: 17.61, nontax: 3.76, excise: 3.04, customs: 2.19, capital: 0.56, tot: 44.48 },
+  { yr: 'FY25',   income: 12.57, corp: 9.80, gst: 10.62, borrow: 15.70, nontax: 5.31, excise: 3.05, customs: 2.35, capital: 0.59, tot: 46.53 },
+  { yr: 'FY26 ★', income: 13.12, corp: 11.09, gst: 10.46, borrow: 15.58, nontax: 6.68, excise: 3.37, customs: 2.58, capital: 0.64, tot: 49.65 },
+  { yr: 'FY27 BE',income: 14.66, corp: 12.31, gst: 10.19, borrow: 16.96, nontax: 6.66, excise: 3.89, customs: 2.71, capital: 1.18, tot: 53.47 },
 ];
 
 const REV_TREND_PCT = REV_TREND.map(row => {
-  const total = row.income + row.corp + row.gst + row.borrow + row.nontax + row.excise + row.customs + row.capital;
+  const total = row.tot;
   const p = (v: number) => +((v / total * 100).toFixed(1));
   return { yr: row.yr, income: p(row.income), corp: p(row.corp), gst: p(row.gst),
            borrow: p(row.borrow), nontax: p(row.nontax), excise: p(row.excise),
@@ -92,7 +94,7 @@ const REV_TREND_PCT = REV_TREND.map(row => {
 });
 
 const REV_TREND_GRP = REV_TREND.map(row => {
-  const total = row.income + row.corp + row.gst + row.borrow + row.nontax + row.excise + row.customs + row.capital;
+  const total = row.tot;
   const p = (v: number) => +((v / total * 100).toFixed(1));
   return { yr: row.yr, consumer: p(row.income + row.gst + row.excise), corp: p(row.corp),
            borrow: p(row.borrow), nontax: p(row.nontax), customs: p(row.customs), capital: p(row.capital) };
@@ -106,6 +108,8 @@ export default function BudgetView() {
   const [loadErr, setLoadErr] = useState(false);
   const [consumerExpanded, setConsumerExpanded] = useState(false);
   const [welfareExpanded, setWelfareExpanded] = useState(false);
+  const [capexExpanded, setCapexExpanded] = useState(false);
+  const [govExpanded, setGovExpanded] = useState(false);
   const [trendGrouped, setTrendGrouped] = useState(true);
   const [hiddenLines, setHiddenLines] = useState<Set<string>>(new Set());
 
@@ -164,20 +168,30 @@ export default function BudgetView() {
     return amtB - amtA;
   });
 
-  const isWelfare = (e: ExpenditureRow) => e.type === 'Welfare';
-  const welfareItems  = EXPENDITURE_SECTORS.filter(isWelfare);
-  const welfareAmt    = welfareItems.reduce((s, e) => s + e.amt, 0);
-  const welfarePct    = Math.round(welfareItems.reduce((s, e) => s + e.pct, 0) * 10) / 10;
-  const standaloneExp = EXPENDITURE_SECTORS.filter(e => !isWelfare(e));
+  const isWelfare  = (e: ExpenditureRow) => e.type === 'Welfare';
+  const isCapex    = (e: ExpenditureRow) => e.type === 'Capex';
+  const isGov      = (e: ExpenditureRow) => e.type === 'Governance';
+  const welfareItems = EXPENDITURE_SECTORS.filter(isWelfare);
+  const capexItems   = EXPENDITURE_SECTORS.filter(isCapex);
+  const govItems     = EXPENDITURE_SECTORS.filter(isGov);
+  const welfareAmt = welfareItems.reduce((s, e) => s + e.amt, 0);
+  const welfarePct = Math.round(welfareItems.reduce((s, e) => s + e.pct, 0) * 10) / 10;
+  const capexAmt   = capexItems.reduce((s, e) => s + e.amt, 0);
+  const capexPct   = Math.round(capexItems.reduce((s, e) => s + e.pct, 0) * 10) / 10;
+  const govAmt     = govItems.reduce((s, e) => s + e.amt, 0);
+  const govPct     = Math.round(govItems.reduce((s, e) => s + e.pct, 0) * 10) / 10;
+  const standaloneExp = EXPENDITURE_SECTORS.filter(e => !isWelfare(e) && !isCapex(e) && !isGov(e));
 
-  type OutRow = { kind: 'welfare' } | { kind: 'item'; row: ExpenditureRow };
+  type OutRow = { kind: 'welfare' } | { kind: 'capex' } | { kind: 'governance' } | { kind: 'item'; row: ExpenditureRow };
   const outRows: OutRow[] = [
     { kind: 'welfare' },
+    { kind: 'capex' },
+    { kind: 'governance' },
     ...standaloneExp.map(e => ({ kind: 'item' as const, row: e })),
   ];
   const sortedOutRows = [...outRows].sort((a, b) => {
-    const amtA = a.kind === 'welfare' ? welfareAmt : a.row.amt;
-    const amtB = b.kind === 'welfare' ? welfareAmt : b.row.amt;
+    const amtA = a.kind === 'welfare' ? welfareAmt : a.kind === 'capex' ? capexAmt : a.kind === 'governance' ? govAmt : a.row.amt;
+    const amtB = b.kind === 'welfare' ? welfareAmt : b.kind === 'capex' ? capexAmt : b.kind === 'governance' ? govAmt : b.row.amt;
     return amtB - amtA;
   });
 
@@ -194,9 +208,9 @@ export default function BudgetView() {
     return { name: r.name.replace(' (Personal)', '').replace(' (CGST + Comp. Cess)', '').replace(' (Deficit Financing)', '').replace('Capital Receipts ', 'Capital\n'), 'FY26 RE': lakh(r.amt), 'FY27': r27 ? lakh(r27.amt) : 0 };
   });
 
-  const expChartData = exp26.slice(0, 5).map(e => {
+  const expChartData = exp26.filter(e => e.type !== 'Other').slice(0, 5).map(e => {
     const e27 = exp27.find(x => x.sector === e.sector);
-    return { name: e.sector.replace(' (Food+Fert+LPG)', '').replace(' (Direct)', ''), 'FY26 RE': lakh(e.amt), 'FY27': e27 ? lakh(e27.amt) : 0 };
+    return { name: e.sector, 'FY26 RE': lakh(e.amt), 'FY27': e27 ? lakh(e27.amt) : 0 };
   });
 
   const capChartData = cap26.slice(0, 6).map(c => {
@@ -238,15 +252,15 @@ export default function BudgetView() {
         {(() => {
           const f26 = FISCAL_TREND.find(x => x.yr === 'FY26')!;
           const interest = exp26.find(e => e.sector.includes('Interest'))!;
-          const capex    = exp26.find(e => e.sector.includes('Capital'))!;
+          const CAPEX_RE_TOTAL = 1095755; // FY26 RE total direct CapEx (separate from OUT panel residual)
           const interestPct = f26 ? Math.round(interest.amt / f26.exp * 1000) / 10 : 0;
-          const capexGdpPct = capex ? (capex.amt / 100000 / 353 * 100).toFixed(1) : '—';
+          const capexGdpPct = (CAPEX_RE_TOTAL / 100000 / 353 * 100).toFixed(1);
           const stats = f26 ? [
             { val: `₹${lakh(f26.revenue).toFixed(2)}L Cr`, lbl: 'Total Revenue Receipts', sub: 'Non-debt (FY26 RE)',              bad: false },
             { val: `₹${lakh(f26.exp).toFixed(2)}L Cr`,     lbl: 'Total Expenditure (RE)', sub: 'Revised Estimates',               bad: false },
             { val: `₹${lakh(f26.deficit_abs).toFixed(2)}L Cr`, lbl: 'Fiscal Deficit',     sub: 'Financed via borrowing',          bad: true  },
             { val: `${f26.deficit}% GDP`,                   lbl: 'Deficit as % of GDP',   sub: 'RE: Target maintained',           bad: true  },
-            { val: `₹${lakh(capex.amt).toFixed(2)}L Cr`,   lbl: 'Capital Expenditure',    sub: `RE; ${capexGdpPct}% of GDP`,      bad: false },
+            { val: `₹${lakh(CAPEX_RE_TOTAL).toFixed(2)}L Cr`, lbl: 'Capital Expenditure', sub: `RE; ${capexGdpPct}% of GDP`,      bad: false },
             { val: `₹${lakh(interest.amt).toFixed(2)}L Cr`,lbl: 'Interest Payments',      sub: `${interestPct}% of all expenditure`, bad: true },
           ] : [];
           return (
@@ -393,7 +407,7 @@ export default function BudgetView() {
               );
             })}
             <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
-              <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>* Gross tax receipts ₹40.6L Cr; ₹13.9L Cr devolved to States (shown in OUT as Tax Devolution)</span>
+              <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>* Gross tax receipts ₹40.6L Cr; ₹13.9L Cr constitutionally devolved to States (15th Finance Commission). Shown net of devolution.</span>
             </div>
           </div>
           <div style={{ border: `2px solid ${T.ink}`, background: T.paper }}>
@@ -414,14 +428,73 @@ export default function BudgetView() {
                     </div>
                     <div className="pbar"><div className="pfill" style={{ width: `${Math.min(welfarePct, 100)}%`, background: T.amber }} /></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>Subsidies + Rural Dev + Agriculture + Education + Health</span>
+                      <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>Food · Fertiliser · Rural Dev · Agriculture · Education · Health · Social Welfare</span>
                       <span className="mono" style={{ fontSize: 9, color: T.muted }}>{welfarePct}% of budget</span>
                     </div>
                   </div>
                   {welfareExpanded && welfareItems.map((e, j) => (
                     <div key={j} style={{ padding: '8px 14px 8px 28px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                        <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{e.sector.replace(' (Food+Fert+LPG)', '').replace(' (Direct)', '')}</span>
+                        <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{e.sector}</span>
+                        <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: e.color }}>{fmt2(e.amt)}</span>
+                      </div>
+                      <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${Math.min(e.pct, 100)}%`, background: e.color }} /></div>
+                      <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{e.pct}% of budget</span>
+                    </div>
+                  ))}
+                </div>
+              );
+              if (item.kind === 'capex') return (
+                <div key="capex">
+                  <div
+                    onClick={() => setCapexExpanded(x => !x)}
+                    style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ fontSize: 9, color: T.green, transition: 'transform 0.2s', display: 'inline-block', transform: capexExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                        Infrastructure & Capital
+                      </span>
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.green }}>{fmt2(capexAmt)}</span>
+                    </div>
+                    <div className="pbar"><div className="pfill" style={{ width: `${Math.min(capexPct, 100)}%`, background: T.green }} /></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>Transport · Energy · Urban Development · IT & Telecom</span>
+                      <span className="mono" style={{ fontSize: 9, color: T.muted }}>{capexPct}% of budget</span>
+                    </div>
+                  </div>
+                  {capexExpanded && capexItems.map((e, j) => (
+                    <div key={j} style={{ padding: '8px 14px 8px 28px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{e.sector}</span>
+                        <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: e.color }}>{fmt2(e.amt)}</span>
+                      </div>
+                      <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${Math.min(e.pct, 100)}%`, background: e.color }} /></div>
+                      <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{e.pct}% of budget</span>
+                    </div>
+                  ))}
+                </div>
+              );
+              if (item.kind === 'governance') return (
+                <div key="governance">
+                  <div onClick={() => setGovExpanded(x => !x)} style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer', userSelect: 'none' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ fontSize: 9, color: '#4338CA', transition: 'transform 0.2s', display: 'inline-block', transform: govExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                        Governance & Growth
+                      </span>
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: '#4338CA' }}>{fmt2(govAmt)}</span>
+                    </div>
+                    <div className="pbar"><div className="pfill" style={{ width: `${Math.min(govPct, 100)}%`, background: '#4338CA' }} /></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>Finance · Tax Admin · Commerce · Science · Diplomacy · NE</span>
+                      <span className="mono" style={{ fontSize: 9, color: T.muted }}>{govPct}% of budget</span>
+                    </div>
+                  </div>
+                  {govExpanded && govItems.map((e, j) => (
+                    <div key={j} style={{ padding: '8px 14px 8px 28px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{e.sector}</span>
                         <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: e.color }}>{fmt2(e.amt)}</span>
                       </div>
                       <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${Math.min(e.pct, 100)}%`, background: e.color }} /></div>
@@ -434,7 +507,7 @@ export default function BudgetView() {
               return (
                 <div key={i} style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink }}>{e.sector.replace(' (Food+Fert+LPG)', '').replace(' (Direct)', '')}</span>
+                    <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink }}>{e.sector}</span>
                     <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: e.color }}>{fmt2(e.amt)}</span>
                   </div>
                   <div className="pbar"><div className="pfill" style={{ width: `${e.pct}%`, background: e.color }} /></div>
@@ -446,7 +519,7 @@ export default function BudgetView() {
               );
             })}
             <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
-              <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>* Capital Expenditure ₹10.96L Cr is government-wide and overlaps with Defence capital outlay</span>
+              <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>* Tax Devolution to States excluded — not a head in "Expenditure of Major Items" (constitutional transfer, not departmental expenditure). All rows sourced directly from that table. "Others" = official residual row. Source: Expenditure of Major Items, Budget at a Glance 2026-27.</span>
             </div>
           </div>
         </div>
