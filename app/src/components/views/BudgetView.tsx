@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { T } from '@/lib/tokens';
 import Rule from '@/components/layout/Rule';
 import YoYBarChart from '@/components/charts/YoYBarChart';
@@ -77,13 +77,13 @@ const abbr = (name: string) => name
 // tot = net total receipts (= total expenditure). Source: Budget at a Glance 2026-27 fiscal summary.
 // Tax figures are gross (pre-devolution); tot anchors pct to a consistent denominator matching the IN panel.
 const REV_TREND = [
-  { yr: 'FY21',   income: 4.59, corp: 4.46, gst: 5.15, borrow: 18.66, nontax: 2.11, excise: 3.61, customs: 1.12, capital: 0.46, tot: 35.02 },
-  { yr: 'FY22',   income: 6.15, corp: 6.35, gst: 6.75, borrow: 14.17, nontax: 3.14, excise: 3.94, customs: 1.89, capital: 1.00, tot: 37.94 },
-  { yr: 'FY23',   income: 8.15, corp: 8.35, gst: 8.54, borrow: 17.59, nontax: 2.62, excise: 3.20, customs: 2.10, capital: 0.84, tot: 41.78 },
-  { yr: 'FY24',   income: 10.22, corp: 9.23, gst: 9.57, borrow: 17.61, nontax: 3.76, excise: 3.04, customs: 2.19, capital: 0.56, tot: 44.48 },
-  { yr: 'FY25',   income: 12.57, corp: 9.80, gst: 10.62, borrow: 15.70, nontax: 5.31, excise: 3.05, customs: 2.35, capital: 0.59, tot: 46.53 },
-  { yr: 'FY26 ★', income: 13.12, corp: 11.09, gst: 10.46, borrow: 15.58, nontax: 6.68, excise: 3.37, customs: 2.58, capital: 0.64, tot: 49.65 },
-  { yr: 'FY27 BE',income: 14.66, corp: 12.31, gst: 10.19, borrow: 16.96, nontax: 6.66, excise: 3.89, customs: 2.71, capital: 1.18, tot: 53.47 },
+  { yr: '2020-21',    income: 4.59, corp: 4.46, gst: 5.15, borrow: 18.66, nontax: 2.11, excise: 3.61, customs: 1.12, capital: 0.46, tot: 35.02 },
+  { yr: '2021-22',    income: 6.15, corp: 6.35, gst: 6.75, borrow: 14.17, nontax: 3.14, excise: 3.94, customs: 1.89, capital: 1.00, tot: 37.94 },
+  { yr: '2022-23',    income: 8.15, corp: 8.35, gst: 8.54, borrow: 17.59, nontax: 2.62, excise: 3.20, customs: 2.10, capital: 0.84, tot: 41.78 },
+  { yr: '2023-24',    income: 10.22, corp: 9.23, gst: 9.57, borrow: 17.61, nontax: 3.76, excise: 3.04, customs: 2.19, capital: 0.56, tot: 44.48 },
+  { yr: '2024-25',    income: 12.57, corp: 9.80, gst: 10.62, borrow: 15.70, nontax: 5.31, excise: 3.05, customs: 2.35, capital: 0.59, tot: 46.53 },
+  { yr: '2025-26 ★',  income: 13.12, corp: 11.09, gst: 10.46, borrow: 15.58, nontax: 6.68, excise: 3.37, customs: 2.58, capital: 0.64, tot: 49.65 },
+  { yr: '2026-27 BE', income: 14.66, corp: 12.31, gst: 10.19, borrow: 16.96, nontax: 6.66, excise: 3.89, customs: 2.71, capital: 1.18, tot: 53.47 },
 ];
 
 const REV_TREND_PCT = REV_TREND.map(row => {
@@ -103,68 +103,101 @@ const REV_TREND_GRP = REV_TREND.map(row => {
 
 const lakh = (n: number) => Math.round(n / 100000 * 100) / 100;
 
-type ExpClassItem = { label: string; amt: number; pct: number; color: string; sub?: { label: string; amt: number; pct: number } };
+type ExpClassItem = { label: string; amt: number; pct: number; color: string; re: number[]; sub?: { label: string; amt: number; pct: number; re: number[] } };
 const EXP_CLASSIFICATION = {
   total: 4964842,
+  reTotals: [3450305, 3770000, 4187232, 4490486, 4716487],  // FY21–FY25
   centre: {
     total: 4119302, pct: 83.0,
+    re: [2688898, 2917250, 3282936, 3557230, 3799210],       // FY21–FY25
     items: [
-      { label: 'I. Establishment Expenditure',        amt: 782701,  pct: 15.8, color: '#374151' },
-      { label: 'II. Central Sector Schemes/Projects', amt: 1637156, pct: 33.0, color: T.green   },
+      { label: 'I. Establishment Expenditure',        amt: 782701,  pct: 15.8, color: '#374151',
+        re: [598672, 700541, 734619, 781774, 841762] },
+      { label: 'II. Central Sector Schemes/Projects', amt: 1637156, pct: 33.0, color: T.green,
+        re: [1263690, 1195078, 1411729, 1446152, 1512820] },
       { label: 'III. Other Central Sector Exp.',      amt: 1699445, pct: 34.2, color: T.red,
-        sub: { label: 'of which: Interest Payments',  amt: 1274338, pct: 25.7 } },
+        re: [826536, 1021631, 1136588, 1329304, 1444628],
+        sub: { label: 'of which: Interest Payments',  amt: 1274338, pct: 25.7,
+               re: [692900, 813791, 940651, 1055427, 1137940] } },
     ] as ExpClassItem[],
   },
   transfers: {
     total: 845541, pct: 17.0,
+    re: [761407, 852750, 904296, 933254, 917276],            // FY21–FY25
     items: [
-      { label: 'IV. Centrally Sponsored Schemes',  amt: 420078, pct: 8.5, color: T.amber   },
-      { label: 'V. Finance Commission Grants',     amt: 152953, pct: 3.1, color: '#4338CA' },
-      { label: 'VI. Other Grants/Loans/Transfers', amt: 272510, pct: 5.5, color: T.muted   },
+      { label: 'IV. Centrally Sponsored Schemes',  amt: 420078, pct: 8.5, color: T.amber,
+        re: [387900, 415351, 451901, 460614, 415356] },
+      { label: 'V. Finance Commission Grants',     amt: 152953, pct: 3.1, color: '#4338CA',
+        re: [182352, 211065, 173257, 140429, 127146] },
+      { label: 'VI. Other Grants/Loans/Transfers', amt: 272510, pct: 5.5, color: T.muted,
+        re: [191155, 226334, 279138, 332211, 374774] },
     ] as ExpClassItem[],
   },
 };
 
 const EFF_CAPEX = {
   total: 1403906, pct: 28.3,
+  reTotals: [669539, 840396, 1053862, 1271436, 1318320],   // FY21–FY25
   items: [
     { label: 'Capital Expenditure',                   amt: 1095755, pct: 22.1, color: T.green,
-      note: 'Direct govt capex on infrastructure, defence, assets' },
+      note: 'Direct govt capex on infrastructure, defence, assets',
+      re: [439163, 602711, 728274, 950246, 1018429] },
     { label: 'Grants for Creation of Capital Assets', amt: 308151,  pct: 6.2,  color: T.amber,
-      note: 'Grants-in-Aid to states/UTs/bodies tied to capital asset creation' },
+      note: 'Grants-in-Aid to states/UTs/bodies tied to capital asset creation',
+      re: [230376, 237685, 325588, 321190, 299891] },
   ],
 };
 
 const miSubsidyAmt = 429735;
-const miSubsidyPct = 8.7;
+const miSubsidyRe = [595355, 433108, 521585, 413466, 383419]; // FY21–FY25
 const miSubsidyItems = [
-  { label: 'Food',       amt: 228154, pct: 4.6, color: T.amber   },
-  { label: 'Fertiliser', amt: 186460, pct: 3.8, color: '#d97706' },
-  { label: 'Petroleum',  amt: 15121,  pct: 0.3, color: '#92400e' },
+  { label: 'Food',       amt: 228154, pct: 4.6, color: T.amber,   re: [422618, 286469, 287194, 212332, 197420] },
+  { label: 'Fertiliser', amt: 186460, pct: 3.8, color: '#d97706', re: [133947, 140122, 225220, 188894, 171299] },
+  { label: 'Petroleum',  amt: 15121,  pct: 0.3, color: '#92400e', re: [38790,  6517,   9171,   12240,  14700] },
 ];
-type MIRow = { kind: 'row'; label: string; amt: number; pct: number; color: string } | { kind: 'subsidy' };
+type MIRow = { kind: 'row'; label: string; amt: number; pct: number; color: string; re: number[] } | { kind: 'subsidy' };
 const MAJOR_ITEMS: MIRow[] = [
-  { kind: 'row', label: 'Interest',                          amt: 1274338, pct: 25.7, color: T.red     },
-  { kind: 'row', label: 'Defence',                           amt: 567855,  pct: 11.4, color: '#374151' },
-  { kind: 'row', label: 'Transport',                         amt: 547563,  pct: 11.0, color: T.green   },
-  { kind: 'row', label: 'Others',                            amt: 486100,  pct: 9.8,  color: T.muted   },
+  { kind: 'row', label: 'Interest',                          amt: 1274338, pct: 25.7, color: T.red,
+    re: [692900,  813791,  940651,  1055427, 1137940] },
+  { kind: 'row', label: 'Defence',                           amt: 567855,  pct: 11.4, color: '#374151',
+    re: [343822,  368418,  409500,  455897,  456722] },
+  { kind: 'row', label: 'Transport',                         amt: 547563,  pct: 11.0, color: T.green,
+    re: [218622,  325443,  390496,  524941,  541384] },
+  { kind: 'row', label: 'Others',                            amt: 486100,  pct: 9.8,  color: T.muted,
+    re: [0,       0,       108102,  118020,  450008] },
   { kind: 'subsidy' },
-  { kind: 'row', label: 'Pension',                           amt: 286641,  pct: 5.8,  color: '#374151' },
-  { kind: 'row', label: 'Home Affairs (incl. UTs)',           amt: 241485,  pct: 4.9,  color: '#4338CA' },
-  { kind: 'row', label: 'Rural Development',                 amt: 212750,  pct: 4.3,  color: T.amber   },
-  { kind: 'row', label: 'Agriculture and Allied Activities', amt: 151853,  pct: 3.1,  color: T.green   },
-  { kind: 'row', label: 'Education',                         amt: 121949,  pct: 2.5,  color: T.amber   },
-  { kind: 'row', label: 'Finance',                           amt: 112175,  pct: 2.3,  color: '#4338CA' },
-  { kind: 'row', label: 'Health',                            amt: 94625,   pct: 1.9,  color: T.amber   },
-  { kind: 'row', label: 'Energy',                            amt: 86471,   pct: 1.7,  color: T.green   },
-  { kind: 'row', label: 'Tax Administration',                amt: 74540,   pct: 1.5,  color: '#4338CA' },
-  { kind: 'row', label: 'Urban Development',                 amt: 57204,   pct: 1.2,  color: T.green   },
-  { kind: 'row', label: 'IT and Telecom',                    amt: 53946,   pct: 1.1,  color: T.green   },
-  { kind: 'row', label: 'Commerce and Industry',             amt: 52324,   pct: 1.1,  color: '#4338CA' },
-  { kind: 'row', label: 'Social Welfare',                    amt: 50053,   pct: 1.0,  color: T.amber   },
-  { kind: 'row', label: 'Scientific Departments',            amt: 37014,   pct: 0.7,  color: '#4338CA' },
-  { kind: 'row', label: 'External Affairs',                  amt: 21743,   pct: 0.4,  color: '#4338CA' },
-  { kind: 'row', label: 'Development of North East',         amt: 4479,    pct: 0.1,  color: '#4338CA' },
+  { kind: 'row', label: 'Pension',                           amt: 286641,  pct: 5.8,  color: '#374151',
+    re: [204393,  188962,  244780,  238049,  275103] },
+  { kind: 'row', label: 'Home Affairs (incl. UTs)',           amt: 241485,  pct: 4.9,  color: '#4338CA',
+    re: [98106,   115550,  124872,  133360,  220371] },
+  { kind: 'row', label: 'Rural Development',                 amt: 212750,  pct: 4.3,  color: T.amber,
+    re: [216342,  206948,  238317,  238984,  190675] },
+  { kind: 'row', label: 'Agriculture and Allied Activities', amt: 151853,  pct: 3.1,  color: T.green,
+    re: [145355,  147764,  76279,   140533,  140859] },
+  { kind: 'row', label: 'Education',                         amt: 121949,  pct: 2.5,  color: T.amber,
+    re: [85089,   88002,   99881,   108878,  114054] },
+  { kind: 'row', label: 'Finance',                           amt: 112175,  pct: 2.3,  color: '#4338CA',
+    re: [50566,   51904,   17908,   23982,   63512] },
+  { kind: 'row', label: 'Health',                            amt: 94625,   pct: 1.9,  color: T.amber,
+    re: [82445,   85915,   77351,   79221,   88032] },
+  { kind: 'row', label: 'Energy',                            amt: 86471,   pct: 1.7,  color: T.green,
+    re: [33440,   48684,   70936,   54989,   63403] },
+  { kind: 'row', label: 'Tax Administration',                amt: 74540,   pct: 1.5,  color: '#4338CA',
+    re: [147728,  195351,  177343,  193695,  207968] },
+  { kind: 'row', label: 'Urban Development',                 amt: 57204,   pct: 1.2,  color: T.green,
+    re: [46791,   73850,   74546,   60271,   63670] },
+  { kind: 'row', label: 'IT and Telecom',                    amt: 53946,   pct: 1.1,  color: T.green,
+    re: [32178,   28757,   74106,   95781,   117869] },
+  { kind: 'row', label: 'Commerce and Industry',             amt: 52324,   pct: 1.1,  color: '#4338CA',
+    re: [23515,   45833,   37540,   47350,   56502] },
+  { kind: 'row', label: 'Social Welfare',                    amt: 50053,   pct: 1.0,  color: T.amber,
+    re: [39629,   44952,   46502,   46741,   46482] },
+  { kind: 'row', label: 'Scientific Departments',            amt: 37014,   pct: 0.7,  color: '#4338CA',
+    re: [22352,   28510,   25626,   26651,   29831] },
+  { kind: 'row', label: 'External Affairs',                  amt: 21743,   pct: 0.4,  color: '#4338CA',
+    re: [15000,   16000,   16973,   29122,   25277] },
+  { kind: 'row', label: 'Development of North East',         amt: 4479,    pct: 0.1,  color: '#4338CA',
+    re: [1860,    2658,    2755,    5892,    4006] },
 ];
 
 export default function BudgetView() {
@@ -175,9 +208,6 @@ export default function BudgetView() {
   const [welfareExpanded, setWelfareExpanded] = useState(false);
   const [capexExpanded, setCapexExpanded] = useState(false);
   const [govExpanded, setGovExpanded] = useState(false);
-  const [centreExpanded, setCentreExpanded] = useState(false);
-  const [transfersExpanded, setTransfersExpanded] = useState(false);
-  const [miSubsidyExpanded, setMiSubsidyExpanded] = useState(false);
   const [trendGrouped, setTrendGrouped] = useState(true);
   const [hiddenLines, setHiddenLines] = useState<Set<string>>(new Set());
 
@@ -215,6 +245,12 @@ export default function BudgetView() {
   const EXPENDITURE_SECTORS = exp26;
   const CAPEX_BREAKDOWN = cap26;
   const fmt2 = (n: number) => n >= 100000 ? `₹${(n / 100000).toFixed(2)}L Cr` : `₹${(n / 1000).toFixed(0)}K Cr`;
+  const FY_SHORT: Record<string, string> = {
+    'FY19': '2018-19', 'FY20': '2019-20', 'FY21': '2020-21', 'FY22': '2021-22',
+    'FY23': '2022-23', 'FY24': '2023-24', 'FY25': '2024-25', 'FY26': '2025-26',
+    'FY27': '2026-27', 'FY28': '2027-28',
+  };
+  const fmtYr = (yr: string) => FY_SHORT[yr] ?? yr;
 
   const isConsumer = (r: RevenueRow) => (r.type === 'Indirect Tax' && !r.name.includes('Customs')) || (r.type === 'Direct Tax' && r.name.includes('Income'));
   const isCorporate = (r: RevenueRow) => r.type === 'Direct Tax' && r.name.includes('Corporation');
@@ -268,32 +304,32 @@ export default function BudgetView() {
   const overviewChartData = (['FY25', 'FY26', 'FY27'] as const).map(yr => {
     const f = FISCAL_TREND.find(x => x.yr === yr);
     if (!f) return null;
-    return { yr, Revenue: lakh(f.revenue), Expenditure: lakh(f.exp), Deficit: lakh(f.deficit_abs) };
+    return { yr: fmtYr(yr), Revenue: lakh(f.revenue), Expenditure: lakh(f.exp), Deficit: lakh(f.deficit_abs) };
   }).filter((x): x is NonNullable<typeof x> => x !== null);
 
   const revChartData = rev26.slice(0, 5).map(r => {
     const r27 = rev27.find(x => x.name === r.name);
-    return { name: r.name.replace(' (Personal)', '').replace(' (CGST + Comp. Cess)', '').replace(' (Deficit Financing)', '').replace('Capital Receipts ', 'Capital\n'), 'FY26 RE': lakh(r.amt), 'FY27': r27 ? lakh(r27.amt) : 0 };
+    return { name: r.name.replace(' (Personal)', '').replace(' (CGST + Comp. Cess)', '').replace(' (Deficit Financing)', '').replace('Capital Receipts ', 'Capital\n'), '2025-2026 RE': lakh(r.amt), '2026-2027 BE': r27 ? lakh(r27.amt) : 0 };
   });
 
   const expChartData = exp26.filter(e => e.type !== 'Other').slice(0, 5).map(e => {
     const e27 = exp27.find(x => x.sector === e.sector);
-    return { name: e.sector, 'FY26 RE': lakh(e.amt), 'FY27': e27 ? lakh(e27.amt) : 0 };
+    return { name: e.sector, '2025-2026 RE': lakh(e.amt), '2026-2027 BE': e27 ? lakh(e27.amt) : 0 };
   });
 
   const capChartData = cap26.slice(0, 6).map(c => {
     const c27 = cap27.find(x => x.name === c.name);
     const shortName = c.name.replace('Road & Highways (MoRTH + NHAI)', 'Roads').replace('Railways (Gross Budgetary Support)', 'Railways').replace('Defence Capital Outlay', 'Defence Cap').replace("50-Yr Interest-Free Loans to States", '50yr Loans').replace('Jal Shakti (Jal Jeevan Mission)', 'Jal Jeevan').replace('Urban (Smart Cities + Metro + AMRUT)', 'Urban').replace('Housing PMAY (Urban + Rural)', 'Housing').replace('Digital (BharatNet + Semicon + AI)', 'Digital');
-    return { name: shortName, 'FY26 RE': lakh(c.amt), 'FY27': c27 ? lakh(c27.amt) : 0 };
+    return { name: shortName, '2025-2026 RE': lakh(c.amt), '2026-2027 BE': c27 ? lakh(c27.amt) : 0 };
   });
 
   const minChartData = min26re.slice(0, 8).map(m => {
     const m25 = min25.find(x => x.name === m.name);
     const m27 = min27.find(x => x.name === m.name);
-    return { name: abbr(m.name), 'FY25': m25 ? lakh(m25.alloc) : 0, 'FY26 RE': lakh(m.alloc), 'FY27': m27 ? lakh(m27.alloc) : 0 };
+    return { name: abbr(m.name), '2024-2025': m25 ? lakh(m25.alloc) : 0, '2025-2026 RE': lakh(m.alloc), '2026-2027 BE': m27 ? lakh(m27.alloc) : 0 };
   });
 
-  const fiscalChartData = FISCAL_TREND.map(f => ({ yr: f.yr, 'Deficit %': f.deficit, 'Debt % (÷10)': Math.round(f.debt / 10 * 10) / 10 }));
+  const fiscalChartData = FISCAL_TREND.map(f => ({ yr: fmtYr(f.yr), 'Deficit %': f.deficit, 'Debt % (÷10)': Math.round(f.debt / 10 * 10) / 10 }));
 
   return (
     <div className="scroll-area fu">
@@ -301,13 +337,13 @@ export default function BudgetView() {
         <div className="tabs" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
           {TABS.map(t => <button key={t.id} className={`tab${tab === t.id ? ' on' : ''}`} onClick={() => setTab(t.id)}>{t.label}</button>)}
         </div>
-        <div style={{ background: T.saffron, color: '#fff', fontSize: 10, fontFamily: "'Libre Baskerville',serif", fontWeight: 700, padding: '5px 12px', letterSpacing: .5, flexShrink: 0 }}>FY 2025-26</div>
+        <div style={{ background: T.saffron, color: '#fff', fontSize: 10, fontFamily: "'Libre Baskerville',serif", fontWeight: 700, padding: '5px 12px', letterSpacing: .5, flexShrink: 0 }}>2025-2026</div>
       </div>
 
       {/* ── OVERVIEW ── */}
       {tab === 'overview' && <>
         <YoYBarChart
-          title="Revenue vs Expenditure — FY25 Actuals / FY26 RE / FY27 BE"
+          title="Revenue vs Expenditure — 2024-2025 Actuals / 2025-2026 RE / 2026-2027 BE"
           data={overviewChartData}
           xKey="yr"
           bars={[
@@ -316,7 +352,7 @@ export default function BudgetView() {
             { key: 'Deficit',     label: 'Fiscal Gap',  color: T.amber  },
           ]}
         />
-        <Rule title="Budget at a Glance — FY 2025-26 (Revised Estimates)" />
+        <Rule title="Budget at a Glance — 2025-2026 (Revised Estimates)" />
         {(() => {
           const f26 = FISCAL_TREND.find(x => x.yr === 'FY26')!;
           const interest = exp26.find(e => e.sector.includes('Interest'))!;
@@ -324,7 +360,7 @@ export default function BudgetView() {
           const interestPct = f26 ? Math.round(interest.amt / f26.exp * 1000) / 10 : 0;
           const capexGdpPct = (CAPEX_RE_TOTAL / 100000 / 353 * 100).toFixed(1);
           const stats = f26 ? [
-            { val: `₹${lakh(f26.revenue).toFixed(2)}L Cr`, lbl: 'Total Revenue Receipts', sub: 'Non-debt (FY26 RE)',              bad: false },
+            { val: `₹${lakh(f26.revenue).toFixed(2)}L Cr`, lbl: 'Total Revenue Receipts', sub: 'Non-debt (2025-2026 RE)',         bad: false },
             { val: `₹${lakh(f26.exp).toFixed(2)}L Cr`,     lbl: 'Total Expenditure (RE)', sub: 'Revised Estimates',               bad: false },
             { val: `₹${lakh(f26.deficit_abs).toFixed(2)}L Cr`, lbl: 'Fiscal Deficit',     sub: 'Financed via borrowing',          bad: true  },
             { val: `${f26.deficit}% GDP`,                   lbl: 'Deficit as % of GDP',   sub: 'RE: Target maintained',           bad: true  },
@@ -347,7 +383,7 @@ export default function BudgetView() {
         <div style={{ border: `1px solid ${T.rule}`, background: T.paper2, marginBottom: 12 }}>
           <div style={{ padding: '8px 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontFamily: "'Libre Baskerville',serif", fontSize: 8, fontWeight: 700, color: T.muted, letterSpacing: 1 }}>
-              REVENUE SOURCES — SHARE OF TOTAL RECEIPTS (%) · FY21–FY27
+              REVENUE SOURCES — SHARE OF TOTAL RECEIPTS (%) · 2020-2021–2026-2027
             </div>
             <button
               onClick={() => { setTrendGrouped(g => !g); setHiddenLines(new Set()); }}
@@ -419,7 +455,7 @@ export default function BudgetView() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
           <div style={{ border: `2px solid ${T.ink}`, background: T.paper }}>
-            <div style={{ background: T.green, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>₹49.65L CRORE IN ▼ (FY26 RE)</div>
+            <div style={{ background: T.green, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>₹49.65L CRORE IN ▼ (2025-2026 RE)</div>
             {sortedInRows.map((item, i) => {
               if (item.kind === 'consumer') return (
                 <div key="consumer">
@@ -479,7 +515,7 @@ export default function BudgetView() {
             </div>
           </div>
           <div style={{ border: `2px solid ${T.ink}`, background: T.paper }}>
-            <div style={{ background: T.red, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>₹49.65L CRORE OUT ▲ (FY26 RE)</div>
+            <div style={{ background: T.red, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>₹49.65L CRORE OUT ▲ (2025-2026 RE)</div>
             {sortedOutRows.map((item, i) => {
               if (item.kind === 'welfare') return (
                 <div key="welfare">
@@ -592,7 +628,7 @@ export default function BudgetView() {
           </div>
         </div>
         <div className="warn-box" style={{ '--wb': T.red, '--wbg': 'rgba(185,28,28,.04)', marginBottom: 16 }}>
-          <div className="warn-box-head">⚠ Borrowings: ₹31 of Every ₹100 Received — FY26 RE</div>
+          <div className="warn-box-head">⚠ Borrowings: ₹31 of Every ₹100 Received — 2025-2026 RE</div>
           <div className="warn-box-body">The government raises ₹49.65L Cr total: ₹33.42L Cr in revenue and ₹15.58L Cr by <strong>borrowing (G-Secs, small savings, T-Bills)</strong> — 31.4% of the entire budget. On the spending side, <strong>interest payments alone consume 25.7 paise of every rupee spent</strong> (₹12.74L Cr), exceeding defence, education, and health combined. India's total outstanding debt stands at ~₹185L Cr (56.1% of GDP). Every year's borrowing adds to a compounding debt burden borne by future taxpayers.</div>
         </div>
         <p className="src-note">Source: Union Budget 2025-26 · Budget Speech · Annual Financial Statement · Receipt Budget · indiabudget.gov.in</p>
@@ -600,76 +636,75 @@ export default function BudgetView() {
 
       {/* ── SPENDING TYPE ── */}
       {tab === 'classification' && <>
-        <Rule title="How Expenditure Is Structured — FY26 RE" />
+        <Rule title="How Expenditure Is Structured — 2020-2021 to 2025-2026 RE" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
           <div style={{ background: T.ink, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
-            ₹49.65L CRORE EXPENDITURE ▼ (FY26 RE)
+            EXPENDITURE CLASSIFICATION — REVISED ESTIMATES (₹ CRORE)
           </div>
-          <div>
-            <div onClick={() => setCentreExpanded(x => !x)}
-              style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer', userSelect: 'none' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ fontSize: 9, color: T.red, transition: 'transform 0.2s', display: 'inline-block', transform: centreExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                  A. Centre's Expenditure
-                </span>
-                <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.red }}>{fmt2(EXP_CLASSIFICATION.centre.total)}</span>
-              </div>
-              <div className="pbar"><div className="pfill" style={{ width: `${EXP_CLASSIFICATION.centre.pct}%`, background: T.red }} /></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>Establishment · Central Schemes · Other (incl. Interest)</span>
-                <span className="mono" style={{ fontSize: 9, color: T.muted }}>{EXP_CLASSIFICATION.centre.pct}% of budget</span>
-              </div>
-            </div>
-            {centreExpanded && EXP_CLASSIFICATION.centre.items.map((item, j) => (
-              <div key={j}>
-                <div style={{ padding: '8px 14px 8px 28px', borderBottom: item.sub ? 'none' : `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{item.label}</span>
-                    <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: item.color }}>{fmt2(item.amt)}</span>
-                  </div>
-                  <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${item.pct}%`, background: item.color }} /></div>
-                  <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{item.pct}% of budget</span>
-                </div>
-                {item.sub && (
-                  <div style={{ padding: '8px 14px 8px 44px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <span style={{ fontFamily: "'Lora',serif", fontSize: 11, fontStyle: 'italic', color: T.muted }}>└ {item.sub.label}</span>
-                      <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: T.muted }}>{fmt2(item.sub.amt)}</span>
-                    </div>
-                    <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${item.sub.pct}%`, background: T.muted }} /></div>
-                    <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{item.sub.pct}% of budget</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div>
-            <div onClick={() => setTransfersExpanded(x => !x)}
-              style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer', userSelect: 'none' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ fontSize: 9, color: T.amber, transition: 'transform 0.2s', display: 'inline-block', transform: transfersExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                  B. Transfers
-                </span>
-                <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.amber }}>{fmt2(EXP_CLASSIFICATION.transfers.total)}</span>
-              </div>
-              <div className="pbar"><div className="pfill" style={{ width: `${EXP_CLASSIFICATION.transfers.pct}%`, background: T.amber }} /></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>CSS · Finance Commission Grants · Other Grants/Loans</span>
-                <span className="mono" style={{ fontSize: 9, color: T.muted }}>{EXP_CLASSIFICATION.transfers.pct}% of budget</span>
-              </div>
-            </div>
-            {transfersExpanded && EXP_CLASSIFICATION.transfers.items.map((item, j) => (
-              <div key={j} style={{ padding: '8px 14px 8px 28px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{item.label}</span>
-                  <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: item.color }}>{fmt2(item.amt)}</span>
-                </div>
-                <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${item.pct}%`, background: item.color }} /></div>
-                <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{item.pct}% of budget</span>
-              </div>
-            ))}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: T.paper2, borderBottom: `2px solid ${T.ink}` }}>
+                  <th style={{ padding: '6px 14px', textAlign: 'left', fontFamily: "'Libre Baskerville',serif", fontSize: 8, fontWeight: 700, letterSpacing: 1, color: T.muted, minWidth: 220 }}>ITEM</th>
+                  {['2020-2021 RE', '2021-2022 RE', '2022-2023 RE', '2023-2024 RE', '2024-2025 RE'].map(yr => (
+                    <th key={yr} style={{ padding: '6px 10px', textAlign: 'right', fontFamily: 'monospace', fontSize: 8, color: T.muted, fontWeight: 400, whiteSpace: 'nowrap' }}>{yr}</th>
+                  ))}
+                  <th style={{ padding: '6px 10px', textAlign: 'right', fontFamily: 'monospace', fontSize: 8, color: T.amber, fontWeight: 700, whiteSpace: 'nowrap' }}>2025-2026 RE ★</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ background: T.paper2 }}>
+                  <td style={{ padding: '7px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.red, borderLeft: `4px solid ${T.red}`, borderBottom: `1px solid ${T.rule}` }}>A. CENTRE'S EXPENDITURE</td>
+                  {EXP_CLASSIFICATION.centre.re.map((v, k) => (
+                    <td key={k} className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.ink, borderBottom: `1px solid ${T.rule}` }}>{fmt2(v)}</td>
+                  ))}
+                  <td className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.red, borderBottom: `1px solid ${T.rule}` }}>{fmt2(EXP_CLASSIFICATION.centre.total)}</td>
+                </tr>
+                {EXP_CLASSIFICATION.centre.items.map((item, j) => (
+                  <Fragment key={j}>
+                    <tr style={{ borderBottom: item.sub ? 'none' : `1px solid ${T.rule}` }}>
+                      <td style={{ padding: '6px 14px 6px 28px', fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{item.label}</td>
+                      {item.re.map((v, k) => (
+                        <td key={k} className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{fmt2(v)}</td>
+                      ))}
+                      <td className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</td>
+                    </tr>
+                    {item.sub && (
+                      <tr style={{ borderBottom: `1px solid ${T.rule}`, background: T.paper2 }}>
+                        <td style={{ padding: '5px 14px 5px 44px', fontFamily: "'Lora',serif", fontSize: 10, fontStyle: 'italic', color: T.muted }}>└ {item.sub.label}</td>
+                        {item.sub.re.map((v, k) => (
+                          <td key={k} className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 9, color: T.muted }}>{fmt2(v)}</td>
+                        ))}
+                        <td className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.muted }}>{fmt2(item.sub.amt)}</td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+                <tr style={{ background: T.paper2 }}>
+                  <td style={{ padding: '7px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.amber, borderLeft: `4px solid ${T.amber}`, borderBottom: `1px solid ${T.rule}`, borderTop: `2px solid ${T.rule}` }}>B. TRANSFERS TO STATES / UTs</td>
+                  {EXP_CLASSIFICATION.transfers.re.map((v, k) => (
+                    <td key={k} className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.ink, borderBottom: `1px solid ${T.rule}`, borderTop: `2px solid ${T.rule}` }}>{fmt2(v)}</td>
+                  ))}
+                  <td className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.amber, borderBottom: `1px solid ${T.rule}`, borderTop: `2px solid ${T.rule}` }}>{fmt2(EXP_CLASSIFICATION.transfers.total)}</td>
+                </tr>
+                {EXP_CLASSIFICATION.transfers.items.map((item, j) => (
+                  <tr key={j} style={{ borderBottom: `1px solid ${T.rule}` }}>
+                    <td style={{ padding: '6px 14px 6px 28px', fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{item.label}</td>
+                    {item.re.map((v, k) => (
+                      <td key={k} className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{fmt2(v)}</td>
+                    ))}
+                    <td className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</td>
+                  </tr>
+                ))}
+                <tr style={{ background: T.paper2, borderTop: `2px solid ${T.ink}` }}>
+                  <td style={{ padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.ink }}>TOTAL</td>
+                  {EXP_CLASSIFICATION.reTotals.map((v, k) => (
+                    <td key={k} className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.ink }}>{fmt2(v)}</td>
+                  ))}
+                  <td className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: T.ink }}>{fmt2(EXP_CLASSIFICATION.total)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
           <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
             <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>
@@ -677,77 +712,102 @@ export default function BudgetView() {
             </span>
           </div>
         </div>
-        <Rule title="Effective Capital Expenditure — FY26 RE" />
+        <Rule title="Effective Capital Expenditure — 2020-2021 to 2025-2026 RE" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
           <div style={{ background: T.ink, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
-            ₹14.04L CRORE EFFECTIVE CAPEX ▼ (FY26 RE)
+            EFFECTIVE CAPITAL EXPENDITURE — REVISED ESTIMATES (₹ CRORE)
           </div>
-          {EFF_CAPEX.items.map((item, j) => (
-            <div key={j} style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink }}>{item.label}</span>
-                <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</span>
-              </div>
-              <div className="pbar"><div className="pfill" style={{ width: `${item.pct}%`, background: item.color }} /></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>{item.note}</span>
-                <span className="mono" style={{ fontSize: 9, color: T.muted }}>{item.pct}% of budget</span>
-              </div>
-            </div>
-          ))}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: T.paper2, borderBottom: `2px solid ${T.ink}` }}>
+                  <th style={{ padding: '6px 14px', textAlign: 'left', fontFamily: "'Libre Baskerville',serif", fontSize: 8, fontWeight: 700, letterSpacing: 1, color: T.muted, minWidth: 220 }}>ITEM</th>
+                  {['2020-2021 RE', '2021-2022 RE', '2022-2023 RE', '2023-2024 RE', '2024-2025 RE'].map(yr => (
+                    <th key={yr} style={{ padding: '6px 10px', textAlign: 'right', fontFamily: 'monospace', fontSize: 8, color: T.muted, fontWeight: 400, whiteSpace: 'nowrap' }}>{yr}</th>
+                  ))}
+                  <th style={{ padding: '6px 10px', textAlign: 'right', fontFamily: 'monospace', fontSize: 8, color: T.amber, fontWeight: 700, whiteSpace: 'nowrap' }}>2025-2026 RE ★</th>
+                </tr>
+              </thead>
+              <tbody>
+                {EFF_CAPEX.items.map((item, j) => (
+                  <tr key={j} style={{ borderBottom: `1px solid ${T.rule}` }}>
+                    <td style={{ padding: '8px 14px', fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>
+                      {item.label}
+                      <div style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 9, color: T.muted, marginTop: 2 }}>{item.note}</div>
+                    </td>
+                    {item.re.map((v, k) => (
+                      <td key={k} className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{fmt2(v)}</td>
+                    ))}
+                    <td className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</td>
+                  </tr>
+                ))}
+                <tr style={{ background: T.paper2, borderTop: `2px solid ${T.ink}` }}>
+                  <td style={{ padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.ink }}>TOTAL EFFECTIVE CAPEX</td>
+                  {EFF_CAPEX.reTotals.map((v, k) => (
+                    <td key={k} className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.ink }}>{fmt2(v)}</td>
+                  ))}
+                  <td className="mono" style={{ padding: '8px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: T.ink }}>{fmt2(EFF_CAPEX.total)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
             <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>
               Source: Effective Capital Expenditure of Government of India, Budget at a Glance 2026-27.
             </span>
           </div>
         </div>
-        <Rule title="Expenditure of Major Items — FY26 RE" />
+        <Rule title="Expenditure of Major Items — 2020-2021 to 2025-2026 RE" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
           <div style={{ background: T.red, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
-            ₹49.65L CRORE MAJOR ITEMS ▼ (FY26 RE)
+            EXPENDITURE OF MAJOR ITEMS — REVISED ESTIMATES (₹ CRORE)
           </div>
-          {MAJOR_ITEMS.map((item, i) => {
-            if (item.kind === 'subsidy') return (
-              <div key="mi-subsidy">
-                <div onClick={() => setMiSubsidyExpanded(x => !x)} style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer', userSelect: 'none' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink, display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ fontSize: 9, color: T.amber, transition: 'transform 0.2s', display: 'inline-block', transform: miSubsidyExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                      Subsidy
-                    </span>
-                    <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.amber }}>{fmt2(miSubsidyAmt)}</span>
-                  </div>
-                  <div className="pbar"><div className="pfill" style={{ width: `${miSubsidyPct}%`, background: T.amber }} /></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>Food · Fertiliser · Petroleum</span>
-                    <span className="mono" style={{ fontSize: 9, color: T.muted }}>{miSubsidyPct}% of budget</span>
-                  </div>
-                </div>
-                {miSubsidyExpanded && miSubsidyItems.map((e, j) => (
-                  <div key={j} style={{ padding: '8px 14px 8px 28px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{e.label}</span>
-                      <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: e.color }}>{fmt2(e.amt)}</span>
-                    </div>
-                    <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${e.pct}%`, background: e.color }} /></div>
-                    <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{e.pct}% of budget</span>
-                  </div>
-                ))}
-              </div>
-            );
-            return (
-              <div key={i} style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink }}>{item.label}</span>
-                  <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</span>
-                </div>
-                <div className="pbar"><div className="pfill" style={{ width: `${item.pct}%`, background: item.color }} /></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="mono" style={{ fontSize: 9, color: T.muted }}>{item.pct}% of budget</span>
-                </div>
-              </div>
-            );
-          })}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: T.paper2, borderBottom: `2px solid ${T.ink}` }}>
+                  <th style={{ padding: '6px 14px', textAlign: 'left', fontFamily: "'Libre Baskerville',serif", fontSize: 8, fontWeight: 700, letterSpacing: 1, color: T.muted, minWidth: 200 }}>ITEM</th>
+                  {['2020-2021 RE', '2021-2022 RE', '2022-2023 RE', '2023-2024 RE', '2024-2025 RE'].map(yr => (
+                    <th key={yr} style={{ padding: '6px 10px', textAlign: 'right', fontFamily: 'monospace', fontSize: 8, color: T.muted, fontWeight: 400, whiteSpace: 'nowrap' }}>{yr}</th>
+                  ))}
+                  <th style={{ padding: '6px 10px', textAlign: 'right', fontFamily: 'monospace', fontSize: 8, color: T.amber, fontWeight: 700, whiteSpace: 'nowrap' }}>2025-2026 RE ★</th>
+                </tr>
+              </thead>
+              <tbody>
+                {MAJOR_ITEMS.map((item, i) => {
+                  if (item.kind === 'subsidy') return (
+                    <Fragment key="mi-subsidy">
+                      <tr style={{ background: T.paper2 }}>
+                        <td style={{ padding: '7px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.amber, borderLeft: `4px solid ${T.amber}`, borderBottom: `1px solid ${T.rule}`, borderTop: `1px solid ${T.rule}` }}>SUBSIDY</td>
+                        {miSubsidyRe.map((v, k) => (
+                          <td key={k} className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.ink, borderBottom: `1px solid ${T.rule}`, borderTop: `1px solid ${T.rule}` }}>{fmt2(v)}</td>
+                        ))}
+                        <td className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: T.amber, borderBottom: `1px solid ${T.rule}`, borderTop: `1px solid ${T.rule}` }}>{fmt2(miSubsidyAmt)}</td>
+                      </tr>
+                      {miSubsidyItems.map((e, j) => (
+                        <tr key={j} style={{ borderBottom: `1px solid ${T.rule}` }}>
+                          <td style={{ padding: '5px 14px 5px 28px', fontFamily: "'Lora',serif", fontSize: 10, fontStyle: 'italic', color: T.muted }}>└ {e.label}</td>
+                          {e.re.map((v, k) => (
+                            <td key={k} className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 9, color: T.muted }}>{fmt2(v)}</td>
+                          ))}
+                          <td className="mono" style={{ padding: '5px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: e.color }}>{fmt2(e.amt)}</td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  );
+                  return (
+                    <tr key={i} style={{ borderBottom: `1px solid ${T.rule}` }}>
+                      <td style={{ padding: '6px 14px', fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{item.label}</td>
+                      {item.re.map((v, k) => (
+                        <td key={k} className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{v > 0 ? fmt2(v) : '—'}</td>
+                      ))}
+                      <td className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
           <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
             <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>
               Source: Expenditure of Major Items, Budget at a Glance 2026-27. "Others" = official residual row.
@@ -760,16 +820,16 @@ export default function BudgetView() {
       {/* ── REVENUE SOURCES ── */}
       {tab === 'revenue' && <>
         <YoYBarChart
-          title="Revenue Sources — FY26 RE vs FY27 BE"
+          title="Revenue Sources — 2025-2026 RE vs 2026-2027 BE"
           data={revChartData}
           bars={[
-            { key: 'FY26 RE', label: 'FY26 RE', color: T.amber  },
-            { key: 'FY27',    label: 'FY27 BE', color: T.saffron },
+            { key: '2025-2026 RE', label: '2025-2026 RE', color: T.amber  },
+            { key: '2026-2027 BE', label: '2026-2027 BE', color: T.saffron },
           ]}
         />
         <Rule title="Where Does Government Money Come From?" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
-          <div style={{ background: T.ink, color: T.paper, padding: '8px 16px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>TOTAL RECEIPTS — ₹33.42 LAKH CRORE (FY 2025-26 RE)</div>
+          <div style={{ background: T.ink, color: T.paper, padding: '8px 16px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>TOTAL RECEIPTS — ₹33.42 LAKH CRORE (2025-2026 RE)</div>
           <div style={{ padding: 20, display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
             <BudgetDonut data={REVENUE_SOURCES} size={160} />
             <div style={{ flex: 1, minWidth: 200 }}>
@@ -814,7 +874,7 @@ export default function BudgetView() {
             { head: 'Direct Taxes',    val: '₹24.0L Cr', pct: '47%', note: 'Income Tax + Corporate Tax. Direct taxes are paid by those who earn — progressive in principle. Only 7.4% of Indians file returns.',     flag: 'ch-a' },
             { head: 'Indirect Taxes',  val: '₹16.5L Cr', pct: '33%', note: 'GST + Customs + Excise. Indirect taxes are regressive — the poor pay the same GST rate as the rich on essentials.',                     flag: 'ch-r' },
             { head: 'Non-Tax Revenue', val: '₹5.7L Cr',  pct: '11%', note: 'RBI surplus, PSU dividends, spectrum fees, external grants. Highly variable year to year.',                                             flag: 'ch-n' },
-            { head: 'Capital Receipts',val: '₹3.5L Cr',  pct: '7%',  note: 'Disinvestment proceeds + loan repayments. FY26 disinvestment target ₹47,000 Cr. Historical underachievement pattern.',              flag: 'ch-a' },
+            { head: 'Capital Receipts',val: '₹3.5L Cr',  pct: '7%',  note: 'Disinvestment proceeds + loan repayments. 2025-2026 disinvestment target ₹47,000 Cr. Historical underachievement pattern.',              flag: 'ch-a' },
           ].map((b, i) => (
             <div key={i} className="card" style={{ marginBottom: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -832,16 +892,16 @@ export default function BudgetView() {
       {/* ── EXPENDITURE ── */}
       {tab === 'expenditure' && <>
         <YoYBarChart
-          title="Expenditure Sectors — FY26 RE vs FY27 BE"
+          title="Expenditure Sectors — 2025-2026 RE vs 2026-2027 BE"
           data={expChartData}
           bars={[
-            { key: 'FY26 RE', label: 'FY26 RE', color: T.red    },
-            { key: 'FY27',    label: 'FY27 BE', color: T.amber  },
+            { key: '2025-2026 RE', label: '2025-2026 RE', color: T.red    },
+            { key: '2026-2027 BE', label: '2026-2027 BE', color: T.amber  },
           ]}
         />
         <Rule title="Where Does Government Money Go?" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
-          <div style={{ background: T.ink, color: T.paper, padding: '8px 16px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>TOTAL EXPENDITURE — ₹49.65 LAKH CRORE (FY 2025-26 RE)</div>
+          <div style={{ background: T.ink, color: T.paper, padding: '8px 16px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>TOTAL EXPENDITURE — ₹49.65 LAKH CRORE (2025-2026 RE)</div>
           <div style={{ padding: 20, display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
             <BudgetDonut data={EXPENDITURE_SECTORS.map(e => ({ pct: e.pct, color: e.color }))} size={160} />
             <div style={{ flex: 1, minWidth: 200 }}>
@@ -915,18 +975,18 @@ export default function BudgetView() {
       {/* ── CAPEX ── */}
       {tab === 'capex' && <>
         <YoYBarChart
-          title="Capital Expenditure — FY26 RE vs FY27 BE"
+          title="Capital Expenditure — 2025-2026 RE vs 2026-2027 BE"
           data={capChartData}
           bars={[
-            { key: 'FY26 RE', label: 'FY26 RE', color: T.green  },
-            { key: 'FY27',    label: 'FY27 BE', color: T.saffron },
+            { key: '2025-2026 RE', label: '2025-2026 RE', color: T.green  },
+            { key: '2026-2027 BE', label: '2026-2027 BE', color: T.saffron },
           ]}
         />
         <Rule title="Capital Expenditure — Building Assets for the Future" />
         <div className="stat-grid" style={{ marginBottom: 20 }}>
           {[
-            { val: '₹10.96L Cr', lbl: 'Total CapEx FY26 RE',  sub: '2.7% of GDP (RE)',            bad: false },
-            { val: '22.1%',       lbl: 'of Total Expenditure', sub: 'RE; up from 12% in FY20',     bad: false },
+            { val: '₹10.96L Cr', lbl: 'Total CapEx 2025-2026 RE',  sub: '2.7% of GDP (RE)',            bad: false },
+            { val: '22.1%',       lbl: 'of Total Expenditure',     sub: 'RE; up from 12% in 2019-2020', bad: false },
             { val: '2.7% GDP',    lbl: 'CapEx as % of GDP',   sub: 'RE (vs 3.1% BE target)',       bad: false },
             { val: '₹2.77L Cr',  lbl: 'Roads & Highways',    sub: 'RE; -3.6% vs BE',              bad: false },
             { val: '₹2.65L Cr',  lbl: 'Railways',            sub: 'RE; +5.1% vs BE',              bad: false },
@@ -941,7 +1001,7 @@ export default function BudgetView() {
         </div>
         <Rule title="CapEx Sector Breakdown" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
-          <div style={{ background: T.ink, color: T.paper, padding: '8px 16px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>TOTAL CAPITAL SPENDING — ₹10.96 LAKH CRORE (FY26 RE)</div>
+          <div style={{ background: T.ink, color: T.paper, padding: '8px 16px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>TOTAL CAPITAL SPENDING — ₹10.96 LAKH CRORE (2025-2026 RE)</div>
           {CAPEX_BREAKDOWN.map((c, i) => (
             <div key={i} style={{ padding: '13px 16px', borderBottom: i < CAPEX_BREAKDOWN.length - 1 ? `1px solid ${T.rule}` : 'none' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
@@ -965,7 +1025,7 @@ export default function BudgetView() {
         </div>
         <div className="warn-box" style={{ '--wb': T.amber, '--wbg': 'rgba(146,82,10,.04)', marginBottom: 12 }}>
           <div className="warn-box-head">⚠ CapEx Quality Concerns — RE Reveals Under-execution</div>
-          <div className="warn-box-body">The FY26 Revised Estimates reveal stark under-execution: <strong>Jal Jeevan Mission slashed 75.8%</strong> (₹70,163 Cr BE → ₹17,000 Cr RE) despite 21% rural coverage gap. <strong>Urban CapEx down 46%</strong> and <strong>Housing down 55%</strong> vs BE. Only Railways exceeded budget (+5.1%). Total CapEx came in ₹25,335 Cr below the BE target.</div>
+          <div className="warn-box-body">The 2025-2026 Revised Estimates reveal stark under-execution: <strong>Jal Jeevan Mission slashed 75.8%</strong> (₹70,163 Cr BE → ₹17,000 Cr RE) despite 21% rural coverage gap. <strong>Urban CapEx down 46%</strong> and <strong>Housing down 55%</strong> vs BE. Only Railways exceeded budget (+5.1%). Total CapEx came in ₹25,335 Cr below the BE target.</div>
         </div>
         <p className="src-note">Source: Expenditure Budget 2025-26 · Capital Budget Statement · CAG Performance Audit Reports</p>
       </>}
@@ -973,16 +1033,16 @@ export default function BudgetView() {
       {/* ── MINISTRY ── */}
       {tab === 'ministry' && <>
         <YoYBarChart
-          title="Ministry Allocations — FY25 Actuals / FY26 RE / FY27 BE"
+          title="Ministry Allocations — 2024-2025 Actuals / 2025-2026 RE / 2026-2027 BE"
           data={minChartData}
           bars={[
-            { key: 'FY25',    label: 'FY25 Actuals', color: T.muted   },
-            { key: 'FY26 RE', label: 'FY26 RE',      color: T.amber   },
-            { key: 'FY27',    label: 'FY27 BE',      color: T.saffron },
+            { key: '2024-2025',    label: '2024-2025 Actuals', color: T.muted   },
+            { key: '2025-2026 RE', label: '2025-2026 RE',       color: T.amber   },
+            { key: '2026-2027 BE', label: '2026-2027 BE',       color: T.saffron },
           ]}
           height={280}
         />
-        <Rule title="Ministry-wise Budget Allocation vs Actual Utilisation — Q3 FY26" />
+        <Rule title="Ministry-wise Budget Allocation vs Actual Utilisation — Q3 2025-2026" />
         <div className="tbl-wrap">
           <table className="dtbl">
             <thead><tr><th>Ministry</th><th>Allocation (₹ Cr)</th><th>Spent (₹ Cr)</th><th style={{ minWidth: 150 }}>Utilisation</th><th>Status</th></tr></thead>
@@ -1016,7 +1076,7 @@ export default function BudgetView() {
       {/* ── FISCAL HEALTH ── */}
       {tab === 'fiscal' && <>
         <FiscalLineChart
-          title="FISCAL DEFICIT & DEBT AS % OF GDP — FY20 TO FY27"
+          title="FISCAL DEFICIT & DEBT AS % OF GDP — 2019-2020 TO 2026-2027"
           data={fiscalChartData}
           xKey="yr"
           lines={[
@@ -1026,13 +1086,13 @@ export default function BudgetView() {
           referenceValue={4.5}
           referenceLabel="4.5% target"
         />
-        <Rule title="Fiscal Health — Deficit & Debt Trends (FY 2019-20 to FY 2025-26)" />
+        <Rule title="Fiscal Health — Deficit & Debt Trends (2019-2020 to 2025-2026)" />
         <div className="stat-grid" style={{ marginBottom: 20 }}>
           {[
             { val: '₹185L Cr',  lbl: 'Total Outstanding Debt',    sub: '~76.8% of GDP',      bad: true  },
             { val: '₹12.0L Cr', lbl: 'Annual Interest Bill',      sub: '24% of exp.',         bad: true  },
             { val: '₹47Cr/min', lbl: 'Interest Paid Every Minute', sub: '₹22,831 Cr/day',    bad: true  },
-            { val: '4.4%',      lbl: 'Fiscal Deficit FY26',       sub: 'Down from 9.2% (FY21)', bad: false },
+            { val: '4.4%',      lbl: 'Fiscal Deficit 2025-2026',   sub: 'Down from 9.2% (2020-2021)', bad: false },
           ].map(k => (
             <div key={k.lbl} className="stat-cell">
               <div className="stat-val" style={{ '--sc': k.bad ? T.red : T.green, fontSize: 18 }}>{k.val}</div>
@@ -1043,10 +1103,10 @@ export default function BudgetView() {
         </div>
         <Rule title="Fiscal Deficit % of GDP — Year-on-Year Trend" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
-          <div style={{ background: T.ink, color: T.paper, padding: '8px 16px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>FISCAL DEFICIT AS % OF GDP — FY20 TO FY27</div>
+          <div style={{ background: T.ink, color: T.paper, padding: '8px 16px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>FISCAL DEFICIT AS % OF GDP — 2019-2020 TO 2026-2027</div>
           {FISCAL_TREND.map((f, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: i < FISCAL_TREND.length - 1 ? `1px solid ${T.rule}` : 'none' }}>
-              <span style={{ fontFamily: "'Libre Baskerville',serif", fontWeight: 700, fontSize: 14, color: T.ink, minWidth: 42 }}>{f.yr}</span>
+              <span style={{ fontFamily: "'Libre Baskerville',serif", fontWeight: 700, fontSize: 14, color: T.ink, minWidth: 52 }}>{fmtYr(f.yr)}</span>
               <div style={{ flex: 1 }}>
                 <div style={{ height: 16, background: T.paper3, border: `1px solid ${T.rule}`, position: 'relative' }}>
                   <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${(f.deficit / 10) * 100}%`, background: f.deficit > 6 ? T.red : f.deficit > 4.5 ? T.amber : T.green, display: 'flex', alignItems: 'center', paddingLeft: 6 }}>
@@ -1075,7 +1135,7 @@ export default function BudgetView() {
                 const def = f.deficit_abs;
                 return (
                   <tr key={f.yr}>
-                    <td style={{ fontFamily: "'Libre Baskerville',serif", fontWeight: 700, color: T.ink }}>{f.yr}</td>
+                    <td style={{ fontFamily: "'Libre Baskerville',serif", fontWeight: 700, color: T.ink }}>{fmtYr(f.yr)}</td>
                     <td className="mono text-green">{f.revenue.toLocaleString('en-IN')}</td>
                     <td className="mono" style={{ color: T.red }}>{f.exp.toLocaleString('en-IN')}</td>
                     <td className="mono" style={{ color: T.red }}>-{def.toLocaleString('en-IN')}</td>
@@ -1089,7 +1149,7 @@ export default function BudgetView() {
         </div>
         <div className="warn-box" style={{ '--wb': T.amber, '--wbg': 'rgba(146,82,10,.04)' }}>
           <div className="warn-box-head">Fiscal Context</div>
-          <div className="warn-box-body">India's fiscal deficit spiked to 9.2% of GDP in FY21 due to COVID-19 stimulus. Consolidation has been steady since, targeting 4.5% by FY26 and 4.0% by FY28 (MTFP). However, total debt at ~76.8% of GDP remains elevated. The IMF recommends emerging economies target below 60% debt/GDP. <strong>Every 1% rise in global interest rates adds ~₹1.8L Cr to India's annual borrowing cost.</strong></div>
+          <div className="warn-box-body">India's fiscal deficit spiked to 9.2% of GDP in 2020-2021 due to COVID-19 stimulus. Consolidation has been steady since, targeting 4.5% by 2025-2026 and 4.0% by 2027-2028 (MTFP). However, total debt at ~76.8% of GDP remains elevated. The IMF recommends emerging economies target below 60% debt/GDP. <strong>Every 1% rise in global interest rates adds ~₹1.8L Cr to India's annual borrowing cost.</strong></div>
         </div>
         <p className="src-note">Source: Union Budget 2025-26 · Medium Term Fiscal Policy Statement · RBI State of the Economy · IMF Article IV</p>
       </>}
