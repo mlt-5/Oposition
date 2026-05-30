@@ -48,8 +48,9 @@ function HBar({ pct, color, max = 100 }: { pct: number; color: string; max?: num
 }
 
 const TABS = [
-  { id: 'overview',    label: 'Overview' },
-  { id: 'revenue',     label: 'Revenue Sources' },
+  { id: 'overview',       label: 'Overview' },
+  { id: 'classification', label: 'Spending Type' },
+  { id: 'revenue',        label: 'Revenue Sources' },
   { id: 'expenditure', label: 'Where Money Goes' },
   { id: 'capex',       label: 'Capital Spending' },
   { id: 'ministry',    label: 'Ministry Tracker' },
@@ -102,6 +103,70 @@ const REV_TREND_GRP = REV_TREND.map(row => {
 
 const lakh = (n: number) => Math.round(n / 100000 * 100) / 100;
 
+type ExpClassItem = { label: string; amt: number; pct: number; color: string; sub?: { label: string; amt: number; pct: number } };
+const EXP_CLASSIFICATION = {
+  total: 4964842,
+  centre: {
+    total: 4119302, pct: 83.0,
+    items: [
+      { label: 'I. Establishment Expenditure',        amt: 782701,  pct: 15.8, color: '#374151' },
+      { label: 'II. Central Sector Schemes/Projects', amt: 1637156, pct: 33.0, color: T.green   },
+      { label: 'III. Other Central Sector Exp.',      amt: 1699445, pct: 34.2, color: T.red,
+        sub: { label: 'of which: Interest Payments',  amt: 1274338, pct: 25.7 } },
+    ] as ExpClassItem[],
+  },
+  transfers: {
+    total: 845541, pct: 17.0,
+    items: [
+      { label: 'IV. Centrally Sponsored Schemes',  amt: 420078, pct: 8.5, color: T.amber   },
+      { label: 'V. Finance Commission Grants',     amt: 152953, pct: 3.1, color: '#4338CA' },
+      { label: 'VI. Other Grants/Loans/Transfers', amt: 272510, pct: 5.5, color: T.muted   },
+    ] as ExpClassItem[],
+  },
+};
+
+const EFF_CAPEX = {
+  total: 1403906, pct: 28.3,
+  items: [
+    { label: 'Capital Expenditure',                   amt: 1095755, pct: 22.1, color: T.green,
+      note: 'Direct govt capex on infrastructure, defence, assets' },
+    { label: 'Grants for Creation of Capital Assets', amt: 308151,  pct: 6.2,  color: T.amber,
+      note: 'Grants-in-Aid to states/UTs/bodies tied to capital asset creation' },
+  ],
+};
+
+const miSubsidyAmt = 429735;
+const miSubsidyPct = 8.7;
+const miSubsidyItems = [
+  { label: 'Food',       amt: 228154, pct: 4.6, color: T.amber   },
+  { label: 'Fertiliser', amt: 186460, pct: 3.8, color: '#d97706' },
+  { label: 'Petroleum',  amt: 15121,  pct: 0.3, color: '#92400e' },
+];
+type MIRow = { kind: 'row'; label: string; amt: number; pct: number; color: string } | { kind: 'subsidy' };
+const MAJOR_ITEMS: MIRow[] = [
+  { kind: 'row', label: 'Interest',                          amt: 1274338, pct: 25.7, color: T.red     },
+  { kind: 'row', label: 'Defence',                           amt: 567855,  pct: 11.4, color: '#374151' },
+  { kind: 'row', label: 'Transport',                         amt: 547563,  pct: 11.0, color: T.green   },
+  { kind: 'row', label: 'Others',                            amt: 486100,  pct: 9.8,  color: T.muted   },
+  { kind: 'subsidy' },
+  { kind: 'row', label: 'Pension',                           amt: 286641,  pct: 5.8,  color: '#374151' },
+  { kind: 'row', label: 'Home Affairs (incl. UTs)',           amt: 241485,  pct: 4.9,  color: '#4338CA' },
+  { kind: 'row', label: 'Rural Development',                 amt: 212750,  pct: 4.3,  color: T.amber   },
+  { kind: 'row', label: 'Agriculture and Allied Activities', amt: 151853,  pct: 3.1,  color: T.green   },
+  { kind: 'row', label: 'Education',                         amt: 121949,  pct: 2.5,  color: T.amber   },
+  { kind: 'row', label: 'Finance',                           amt: 112175,  pct: 2.3,  color: '#4338CA' },
+  { kind: 'row', label: 'Health',                            amt: 94625,   pct: 1.9,  color: T.amber   },
+  { kind: 'row', label: 'Energy',                            amt: 86471,   pct: 1.7,  color: T.green   },
+  { kind: 'row', label: 'Tax Administration',                amt: 74540,   pct: 1.5,  color: '#4338CA' },
+  { kind: 'row', label: 'Urban Development',                 amt: 57204,   pct: 1.2,  color: T.green   },
+  { kind: 'row', label: 'IT and Telecom',                    amt: 53946,   pct: 1.1,  color: T.green   },
+  { kind: 'row', label: 'Commerce and Industry',             amt: 52324,   pct: 1.1,  color: '#4338CA' },
+  { kind: 'row', label: 'Social Welfare',                    amt: 50053,   pct: 1.0,  color: T.amber   },
+  { kind: 'row', label: 'Scientific Departments',            amt: 37014,   pct: 0.7,  color: '#4338CA' },
+  { kind: 'row', label: 'External Affairs',                  amt: 21743,   pct: 0.4,  color: '#4338CA' },
+  { kind: 'row', label: 'Development of North East',         amt: 4479,    pct: 0.1,  color: '#4338CA' },
+];
+
 export default function BudgetView() {
   const [tab, setTab] = useState('overview');
   const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
@@ -110,6 +175,9 @@ export default function BudgetView() {
   const [welfareExpanded, setWelfareExpanded] = useState(false);
   const [capexExpanded, setCapexExpanded] = useState(false);
   const [govExpanded, setGovExpanded] = useState(false);
+  const [centreExpanded, setCentreExpanded] = useState(false);
+  const [transfersExpanded, setTransfersExpanded] = useState(false);
+  const [miSubsidyExpanded, setMiSubsidyExpanded] = useState(false);
   const [trendGrouped, setTrendGrouped] = useState(true);
   const [hiddenLines, setHiddenLines] = useState<Set<string>>(new Set());
 
@@ -528,6 +596,165 @@ export default function BudgetView() {
           <div className="warn-box-body">The government raises ₹49.65L Cr total: ₹33.42L Cr in revenue and ₹15.58L Cr by <strong>borrowing (G-Secs, small savings, T-Bills)</strong> — 31.4% of the entire budget. On the spending side, <strong>interest payments alone consume 25.7 paise of every rupee spent</strong> (₹12.74L Cr), exceeding defence, education, and health combined. India's total outstanding debt stands at ~₹185L Cr (56.1% of GDP). Every year's borrowing adds to a compounding debt burden borne by future taxpayers.</div>
         </div>
         <p className="src-note">Source: Union Budget 2025-26 · Budget Speech · Annual Financial Statement · Receipt Budget · indiabudget.gov.in</p>
+      </>}
+
+      {/* ── SPENDING TYPE ── */}
+      {tab === 'classification' && <>
+        <Rule title="How Expenditure Is Structured — FY26 RE" />
+        <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
+          <div style={{ background: T.ink, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
+            ₹49.65L CRORE EXPENDITURE ▼ (FY26 RE)
+          </div>
+          <div>
+            <div onClick={() => setCentreExpanded(x => !x)}
+              style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer', userSelect: 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ fontSize: 9, color: T.red, transition: 'transform 0.2s', display: 'inline-block', transform: centreExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                  A. Centre's Expenditure
+                </span>
+                <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.red }}>{fmt2(EXP_CLASSIFICATION.centre.total)}</span>
+              </div>
+              <div className="pbar"><div className="pfill" style={{ width: `${EXP_CLASSIFICATION.centre.pct}%`, background: T.red }} /></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>Establishment · Central Schemes · Other (incl. Interest)</span>
+                <span className="mono" style={{ fontSize: 9, color: T.muted }}>{EXP_CLASSIFICATION.centre.pct}% of budget</span>
+              </div>
+            </div>
+            {centreExpanded && EXP_CLASSIFICATION.centre.items.map((item, j) => (
+              <div key={j}>
+                <div style={{ padding: '8px 14px 8px 28px', borderBottom: item.sub ? 'none' : `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{item.label}</span>
+                    <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: item.color }}>{fmt2(item.amt)}</span>
+                  </div>
+                  <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${item.pct}%`, background: item.color }} /></div>
+                  <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{item.pct}% of budget</span>
+                </div>
+                {item.sub && (
+                  <div style={{ padding: '8px 14px 8px 44px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span style={{ fontFamily: "'Lora',serif", fontSize: 11, fontStyle: 'italic', color: T.muted }}>└ {item.sub.label}</span>
+                      <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: T.muted }}>{fmt2(item.sub.amt)}</span>
+                    </div>
+                    <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${item.sub.pct}%`, background: T.muted }} /></div>
+                    <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{item.sub.pct}% of budget</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div>
+            <div onClick={() => setTransfersExpanded(x => !x)}
+              style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer', userSelect: 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ fontSize: 9, color: T.amber, transition: 'transform 0.2s', display: 'inline-block', transform: transfersExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                  B. Transfers
+                </span>
+                <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.amber }}>{fmt2(EXP_CLASSIFICATION.transfers.total)}</span>
+              </div>
+              <div className="pbar"><div className="pfill" style={{ width: `${EXP_CLASSIFICATION.transfers.pct}%`, background: T.amber }} /></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>CSS · Finance Commission Grants · Other Grants/Loans</span>
+                <span className="mono" style={{ fontSize: 9, color: T.muted }}>{EXP_CLASSIFICATION.transfers.pct}% of budget</span>
+              </div>
+            </div>
+            {transfersExpanded && EXP_CLASSIFICATION.transfers.items.map((item, j) => (
+              <div key={j} style={{ padding: '8px 14px 8px 28px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{item.label}</span>
+                  <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: item.color }}>{fmt2(item.amt)}</span>
+                </div>
+                <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${item.pct}%`, background: item.color }} /></div>
+                <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{item.pct}% of budget</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
+            <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>
+              Source: Statement of Expenditure of Government of India, Budget at a Glance 2026-27.
+            </span>
+          </div>
+        </div>
+        <Rule title="Effective Capital Expenditure — FY26 RE" />
+        <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
+          <div style={{ background: T.ink, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
+            ₹14.04L CRORE EFFECTIVE CAPEX ▼ (FY26 RE)
+          </div>
+          {EFF_CAPEX.items.map((item, j) => (
+            <div key={j} style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink }}>{item.label}</span>
+                <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</span>
+              </div>
+              <div className="pbar"><div className="pfill" style={{ width: `${item.pct}%`, background: item.color }} /></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>{item.note}</span>
+                <span className="mono" style={{ fontSize: 9, color: T.muted }}>{item.pct}% of budget</span>
+              </div>
+            </div>
+          ))}
+          <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
+            <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>
+              Source: Effective Capital Expenditure of Government of India, Budget at a Glance 2026-27.
+            </span>
+          </div>
+        </div>
+        <Rule title="Expenditure of Major Items — FY26 RE" />
+        <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
+          <div style={{ background: T.red, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
+            ₹49.65L CRORE MAJOR ITEMS ▼ (FY26 RE)
+          </div>
+          {MAJOR_ITEMS.map((item, i) => {
+            if (item.kind === 'subsidy') return (
+              <div key="mi-subsidy">
+                <div onClick={() => setMiSubsidyExpanded(x => !x)} style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5, cursor: 'pointer', userSelect: 'none' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontSize: 9, color: T.amber, transition: 'transform 0.2s', display: 'inline-block', transform: miSubsidyExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                      Subsidy
+                    </span>
+                    <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.amber }}>{fmt2(miSubsidyAmt)}</span>
+                  </div>
+                  <div className="pbar"><div className="pfill" style={{ width: `${miSubsidyPct}%`, background: T.amber }} /></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>Food · Fertiliser · Petroleum</span>
+                    <span className="mono" style={{ fontSize: 9, color: T.muted }}>{miSubsidyPct}% of budget</span>
+                  </div>
+                </div>
+                {miSubsidyExpanded && miSubsidyItems.map((e, j) => (
+                  <div key={j} style={{ padding: '8px 14px 8px 28px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 4, background: T.paper2 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span style={{ fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{e.label}</span>
+                      <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: e.color }}>{fmt2(e.amt)}</span>
+                    </div>
+                    <div className="pbar" style={{ height: 3 }}><div className="pfill" style={{ width: `${e.pct}%`, background: e.color }} /></div>
+                    <span className="mono" style={{ fontSize: 9, color: T.muted, textAlign: 'right' }}>{e.pct}% of budget</span>
+                  </div>
+                ))}
+              </div>
+            );
+            return (
+              <div key={i} style={{ padding: '10px 14px', borderBottom: `1px solid ${T.rule}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ fontFamily: "'Lora',serif", fontSize: 12, fontWeight: 600, color: T.ink }}>{item.label}</span>
+                  <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: item.color }}>{fmt2(item.amt)}</span>
+                </div>
+                <div className="pbar"><div className="pfill" style={{ width: `${item.pct}%`, background: item.color }} /></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="mono" style={{ fontSize: 9, color: T.muted }}>{item.pct}% of budget</span>
+                </div>
+              </div>
+            );
+          })}
+          <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
+            <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>
+              Source: Expenditure of Major Items, Budget at a Glance 2026-27. "Others" = official residual row.
+            </span>
+          </div>
+        </div>
+        <p className="src-note">Source: Union Budget 2025-26 · Budget Speech · Annual Financial Statement · indiabudget.gov.in</p>
       </>}
 
       {/* ── REVENUE SOURCES ── */}
