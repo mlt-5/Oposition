@@ -155,40 +155,18 @@ const CLASS_CHART_DATA = EXP_CLASS_YEARS.map((yr, k) => {
   if (k < 5) {
     const t = EXP_CLASSIFICATION.reTotals[k];
     const p = (v: number) => +(v / t * 100).toFixed(1);
-    return {
-      yr,
-      establishment_pct: p(ci0.re[k]),   establishment_amt: ci0.re[k],
-      central_schemes_pct: p(ci1.re[k]), central_schemes_amt: ci1.re[k],
-      other_central_pct: p(ci2.re[k]),   other_central_amt: ci2.re[k],
-      interest_pct: p(ci2.sub!.re[k]),   interest_amt: ci2.sub!.re[k],
-      css_pct: p(ti0.re[k]),             css_amt: ti0.re[k],
-      fin_commission_pct: p(ti1.re[k]),  fin_commission_amt: ti1.re[k],
-      other_grants_pct: p(ti2.re[k]),    other_grants_amt: ti2.re[k],
-    };
+    return { yr, establishment_pct: p(ci0.re[k]), central_schemes_pct: p(ci1.re[k]), other_central_pct: p(ci2.re[k]), interest_pct: p(ci2.sub!.re[k]), css_pct: p(ti0.re[k]), fin_commission_pct: p(ti1.re[k]), other_grants_pct: p(ti2.re[k]) };
   }
-  return {
-    yr,
-    establishment_pct: ci0.pct,   establishment_amt: ci0.amt,
-    central_schemes_pct: ci1.pct, central_schemes_amt: ci1.amt,
-    other_central_pct: ci2.pct,   other_central_amt: ci2.amt,
-    interest_pct: ci2.sub!.pct,   interest_amt: ci2.sub!.amt,
-    css_pct: ti0.pct,             css_amt: ti0.amt,
-    fin_commission_pct: ti1.pct,  fin_commission_amt: ti1.amt,
-    other_grants_pct: ti2.pct,    other_grants_amt: ti2.amt,
-  };
+  return { yr, establishment_pct: ci0.pct, central_schemes_pct: ci1.pct, other_central_pct: ci2.pct, interest_pct: ci2.sub!.pct, css_pct: ti0.pct, fin_commission_pct: ti1.pct, other_grants_pct: ti2.pct };
 });
 
 const CAPEX_CHART_DATA = EXP_CLASS_YEARS.map((yr, k) => {
   const [cap, grants] = EFF_CAPEX.items;
   if (k < 5) {
     const t = EXP_CLASSIFICATION.reTotals[k];
-    return {
-      yr,
-      capex_pct: +(cap.re[k] / t * 100).toFixed(1),    capex_amt: cap.re[k],
-      grants_pct: +(grants.re[k] / t * 100).toFixed(1), grants_amt: grants.re[k],
-    };
+    return { yr, capex_pct: +(cap.re[k] / t * 100).toFixed(1), grants_pct: +(grants.re[k] / t * 100).toFixed(1) };
   }
-  return { yr, capex_pct: cap.pct, capex_amt: cap.amt, grants_pct: grants.pct, grants_amt: grants.amt };
+  return { yr, capex_pct: cap.pct, grants_pct: grants.pct };
 });
 
 const miSubsidyAmt = 429735;
@@ -243,6 +221,39 @@ const MAJOR_ITEMS: MIRow[] = [
     re: [1860,    2658,    2755,    5892,    4006] },
 ];
 
+const MI_WELFARE_LABELS = ['Rural Development', 'Agriculture and Allied Activities', 'Education', 'Health', 'Social Welfare'];
+const MI_CAPEX_LABELS   = ['Transport', 'Energy', 'Urban Development', 'IT and Telecom'];
+const MI_GOV_LABELS     = ['Finance', 'Tax Administration', 'Commerce and Industry', 'Scientific Departments', 'External Affairs', 'Development of North East', 'Home Affairs (incl. UTs)'];
+
+const _miRows = MAJOR_ITEMS.filter((i): i is Extract<MIRow, {kind:'row'}> => i.kind === 'row');
+const miWelfareRows  = _miRows.filter(r => MI_WELFARE_LABELS.includes(r.label));
+const miCapexRows    = _miRows.filter(r => MI_CAPEX_LABELS.includes(r.label));
+const miGovRows      = _miRows.filter(r => MI_GOV_LABELS.includes(r.label));
+const miStandalones  = _miRows.filter(r => !MI_WELFARE_LABELS.includes(r.label) && !MI_CAPEX_LABELS.includes(r.label) && !MI_GOV_LABELS.includes(r.label));
+
+const miGroupWelfareAmt = miSubsidyAmt + miWelfareRows.reduce((s, r) => s + r.amt, 0);
+const miGroupCapexAmt   = miCapexRows.reduce((s, r) => s + r.amt, 0);
+const miGroupGovAmt     = miGovRows.reduce((s, r) => s + r.amt, 0);
+const miGroupWelfarePct = +(miGroupWelfareAmt / EXP_CLASSIFICATION.total * 100).toFixed(1);
+const miGroupCapexPct   = +(miGroupCapexAmt / EXP_CLASSIFICATION.total * 100).toFixed(1);
+const miGroupGovPct     = +(miGroupGovAmt / EXP_CLASSIFICATION.total * 100).toFixed(1);
+const miGroupWelfareRe  = Array.from({length: 5}, (_, k) => miSubsidyRe[k] + miWelfareRows.reduce((s, r) => s + r.re[k], 0));
+const miGroupCapexRe    = Array.from({length: 5}, (_, k) => miCapexRows.reduce((s, r) => s + r.re[k], 0));
+const miGroupGovRe      = Array.from({length: 5}, (_, k) => miGovRows.reduce((s, r) => s + r.re[k], 0));
+
+const _miInterest = _miRows.find(r => r.label === 'Interest')!;
+const _miDefence  = _miRows.find(r => r.label === 'Defence')!;
+const _miOthers   = _miRows.find(r => r.label === 'Others')!;
+const _miPension  = _miRows.find(r => r.label === 'Pension')!;
+const MI_CHART_DATA = EXP_CLASS_YEARS.map((yr, k) => {
+  if (k < 5) {
+    const t = EXP_CLASSIFICATION.reTotals[k];
+    const p = (v: number) => +(v / t * 100).toFixed(1);
+    return { yr, interest_pct: p(_miInterest.re[k]), welfare_pct: p(miGroupWelfareRe[k]), capex_pct: p(miGroupCapexRe[k]), defence_pct: p(_miDefence.re[k]), gov_pct: p(miGroupGovRe[k]), others_pct: _miOthers.re[k] > 0 ? p(_miOthers.re[k]) : null, pension_pct: p(_miPension.re[k]) };
+  }
+  return { yr, interest_pct: _miInterest.pct, welfare_pct: miGroupWelfarePct, capex_pct: miGroupCapexPct, defence_pct: _miDefence.pct, gov_pct: miGroupGovPct, others_pct: _miOthers.pct, pension_pct: _miPension.pct };
+});
+
 export default function BudgetView() {
   const [tab, setTab] = useState('overview');
   const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
@@ -253,7 +264,11 @@ export default function BudgetView() {
   const [govExpanded, setGovExpanded] = useState(false);
   const [trendGrouped, setTrendGrouped] = useState(true);
   const [hiddenLines, setHiddenLines] = useState<Set<string>>(new Set());
-  const [spendPct, setSpendPct] = useState(true);
+  const [spendPct, setSpendPct] = useState(false);
+  const [miGrouped, setMiGrouped] = useState(true);
+  const [miWelfareOpen, setMiWelfareOpen] = useState(false);
+  const [miCapexOpen, setMiCapexOpen] = useState(false);
+  const [miGovOpen, setMiGovOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -375,6 +390,25 @@ export default function BudgetView() {
   });
 
   const fiscalChartData = FISCAL_TREND.map(f => ({ yr: fmtYr(f.yr), 'Deficit %': f.deficit, 'Debt % (÷10)': Math.round(f.debt / 10 * 10) / 10 }));
+
+  type MIGEntry =
+    | { t: 'group'; label: string; color: string; amt: number; pct: number; re: number[]; items: {label:string; amt:number; pct:number; color:string; re:number[]}[]; open: boolean; toggle: ()=>void }
+    | { t: 'row'; label: string; amt: number; pct: number; color: string; re: number[] };
+  const miGroupedRows: MIGEntry[] = ([
+    { t: 'group', label: 'Social Welfare', color: T.amber, amt: miGroupWelfareAmt, pct: miGroupWelfarePct, re: miGroupWelfareRe,
+      items: [
+        { label: 'Subsidy (Food + Fertiliser + Petroleum)', amt: miSubsidyAmt, pct: +(miSubsidyAmt/EXP_CLASSIFICATION.total*100).toFixed(1), color: T.amber, re: miSubsidyRe },
+        ...miWelfareRows.map(r => ({ label: r.label, amt: r.amt, pct: r.pct, color: r.color, re: r.re })),
+      ],
+      open: miWelfareOpen, toggle: () => setMiWelfareOpen(x => !x) },
+    { t: 'group', label: 'Infrastructure & Capital', color: T.green, amt: miGroupCapexAmt, pct: miGroupCapexPct, re: miGroupCapexRe,
+      items: miCapexRows.map(r => ({ label: r.label, amt: r.amt, pct: r.pct, color: r.color, re: r.re })),
+      open: miCapexOpen, toggle: () => setMiCapexOpen(x => !x) },
+    { t: 'group', label: 'Governance & Growth', color: '#4338CA', amt: miGroupGovAmt, pct: miGroupGovPct, re: miGroupGovRe,
+      items: miGovRows.map(r => ({ label: r.label, amt: r.amt, pct: r.pct, color: r.color, re: r.re })),
+      open: miGovOpen, toggle: () => setMiGovOpen(x => !x) },
+    ...miStandalones.map(r => ({ t: 'row' as const, label: r.label, amt: r.amt, pct: r.pct, color: r.color, re: r.re })),
+  ] as MIGEntry[]).sort((a, b) => b.amt - a.amt);
 
   return (
     <div className="scroll-area fu">
@@ -690,14 +724,14 @@ export default function BudgetView() {
         <Rule title="How Expenditure Is Structured — 2020-2021 to 2025-2026 RE" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
           <div style={{ background: T.ink, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
-            {spendPct ? 'EXPENDITURE COMPOSITION — % OF TOTAL EXPENDITURE (2020-21 TO 2025-26 RE)' : 'EXPENDITURE COMPOSITION — ₹ CRORE (2020-21 TO 2025-26 RE)'}
+            EXPENDITURE COMPOSITION — % OF TOTAL EXPENDITURE (2020-21 TO 2025-26 RE)
           </div>
           <div style={{ padding: '16px 0 8px' }}>
             <ResponsiveContainer width="100%" height={480}>
               <LineChart data={CLASS_CHART_DATA} margin={{ top: 8, right: 24, left: 8, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#C8BBA8" vertical={false} />
                 <XAxis dataKey="yr" tick={{ fontFamily: "'Libre Baskerville',serif", fontSize: 9, fill: '#7A6349' }} axisLine={{ stroke: '#C8BBA8' }} tickLine={false} />
-                <YAxis tick={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fill: '#9B8E7D' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => spendPct ? `${v}%` : fmt2(v)} width={56} />
+                <YAxis tick={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fill: '#9B8E7D' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} width={34} />
                 <Tooltip
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null;
@@ -707,7 +741,7 @@ export default function BudgetView() {
                         <div style={{ fontFamily: "'Libre Baskerville',serif", fontWeight: 700, fontSize: 10, marginBottom: 6 }}>{label}</div>
                         {sorted.map(entry => (
                           <div key={String(entry.dataKey)} style={{ color: entry.color, marginBottom: 3 }}>
-                            {entry.name} : {spendPct ? `${Number(entry.value).toFixed(1)}% of expenditure` : fmt2(Number(entry.value))}
+                            {entry.name} : {Number(entry.value).toFixed(1)}% of expenditure
                           </div>
                         ))}
                       </div>
@@ -715,19 +749,19 @@ export default function BudgetView() {
                   }}
                 />
                 <Legend wrapperStyle={{ fontFamily: "'Lora',serif", fontSize: 9, paddingTop: 12, paddingBottom: 12 }} iconSize={8} />
-                <Line type="monotone" dataKey={spendPct ? 'establishment_pct'   : 'establishment_amt'}   name="I. Establishment"        stroke="#374151" strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
-                <Line type="monotone" dataKey={spendPct ? 'central_schemes_pct' : 'central_schemes_amt'} name="II. Central Schemes"     stroke={T.green}  strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
-                <Line type="monotone" dataKey={spendPct ? 'other_central_pct'   : 'other_central_amt'}   name="III. Other Central"      stroke={T.red}    strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
-                <Line type="monotone" dataKey={spendPct ? 'interest_pct'        : 'interest_amt'}        name="└ Interest"              stroke={T.red}    strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} strokeDasharray="4 2" />
-                <Line type="monotone" dataKey={spendPct ? 'css_pct'             : 'css_amt'}             name="IV. Cent. Spon. Schemes" stroke={T.amber}  strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
-                <Line type="monotone" dataKey={spendPct ? 'fin_commission_pct'  : 'fin_commission_amt'}  name="V. Finance Commission"   stroke="#4338CA"  strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
-                <Line type="monotone" dataKey={spendPct ? 'other_grants_pct'    : 'other_grants_amt'}    name="VI. Other Grants"        stroke={T.muted}  strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} />
+                <Line type="monotone" dataKey="establishment_pct"   name="I. Establishment"        stroke="#374151" strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="central_schemes_pct" name="II. Central Schemes"     stroke={T.green}  strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="other_central_pct"   name="III. Other Central"      stroke={T.red}    strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="interest_pct"        name="└ Interest"              stroke={T.red}    strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} strokeDasharray="4 2" />
+                <Line type="monotone" dataKey="css_pct"             name="IV. Cent. Spon. Schemes" stroke={T.amber}  strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="fin_commission_pct"  name="V. Finance Commission"   stroke="#4338CA"  strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="other_grants_pct"    name="VI. Other Grants"        stroke={T.muted}  strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
           <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
             <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>
-              {spendPct ? '% of total expenditure for each year. Interest Payments (dashed) is a sub-component of III.' : '₹ Crore. Interest Payments (dashed) is a sub-component of III.'}
+              % of total expenditure for each year. Interest Payments (dashed) is a sub-component of III.
             </span>
           </div>
         </div>
@@ -809,14 +843,14 @@ export default function BudgetView() {
         <Rule title="Effective Capital Expenditure — 2020-2021 to 2025-2026 RE" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
           <div style={{ background: T.ink, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
-            {spendPct ? 'EFFECTIVE CAPEX TREND — % OF TOTAL EXPENDITURE (2020-21 TO 2025-26 RE)' : 'EFFECTIVE CAPEX TREND — ₹ CRORE (2020-21 TO 2025-26 RE)'}
+            EFFECTIVE CAPEX TREND — % OF TOTAL EXPENDITURE (2020-21 TO 2025-26 RE)
           </div>
           <div style={{ padding: '16px 0 8px' }}>
             <ResponsiveContainer width="100%" height={480}>
               <LineChart data={CAPEX_CHART_DATA} margin={{ top: 8, right: 24, left: 8, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#C8BBA8" vertical={false} />
                 <XAxis dataKey="yr" tick={{ fontFamily: "'Libre Baskerville',serif", fontSize: 9, fill: '#7A6349' }} axisLine={{ stroke: '#C8BBA8' }} tickLine={false} />
-                <YAxis tick={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fill: '#9B8E7D' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => spendPct ? `${v}%` : fmt2(v)} width={56} />
+                <YAxis tick={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fill: '#9B8E7D' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} width={34} />
                 <Tooltip
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null;
@@ -826,7 +860,7 @@ export default function BudgetView() {
                         <div style={{ fontFamily: "'Libre Baskerville',serif", fontWeight: 700, fontSize: 10, marginBottom: 6 }}>{label}</div>
                         {sorted.map(entry => (
                           <div key={String(entry.dataKey)} style={{ color: entry.color, marginBottom: 3 }}>
-                            {entry.name} : {spendPct ? `${Number(entry.value).toFixed(1)}% of expenditure` : fmt2(Number(entry.value))}
+                            {entry.name} : {Number(entry.value).toFixed(1)}% of expenditure
                           </div>
                         ))}
                       </div>
@@ -834,14 +868,14 @@ export default function BudgetView() {
                   }}
                 />
                 <Legend wrapperStyle={{ fontFamily: "'Lora',serif", fontSize: 9, paddingTop: 12, paddingBottom: 12 }} iconSize={8} />
-                <Line type="monotone" dataKey={spendPct ? 'capex_pct'  : 'capex_amt'}  name="Capital Expenditure"       stroke={T.green} strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
-                <Line type="monotone" dataKey={spendPct ? 'grants_pct' : 'grants_amt'} name="Grants for Capital Assets" stroke={T.amber} strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="capex_pct"  name="Capital Expenditure"       stroke={T.green} strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="grants_pct" name="Grants for Capital Assets" stroke={T.amber} strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
           <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
             <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>
-              {spendPct ? '% of total expenditure for each year.' : '₹ Crore.'}
+              % of total expenditure for each year.
             </span>
           </div>
         </div>
@@ -892,7 +926,53 @@ export default function BudgetView() {
         <Rule title="Expenditure of Major Items — 2020-2021 to 2025-2026 RE" />
         <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
           <div style={{ background: T.red, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>
-            EXPENDITURE OF MAJOR ITEMS — REVISED ESTIMATES (₹ CRORE)
+            MAJOR ITEMS TREND — % OF TOTAL EXPENDITURE (2020-21 TO 2025-26 RE)
+          </div>
+          <div style={{ padding: '16px 0 8px' }}>
+            <ResponsiveContainer width="100%" height={480}>
+              <LineChart data={MI_CHART_DATA} margin={{ top: 8, right: 24, left: 8, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#C8BBA8" vertical={false} />
+                <XAxis dataKey="yr" tick={{ fontFamily: "'Libre Baskerville',serif", fontSize: 9, fill: '#7A6349' }} axisLine={{ stroke: '#C8BBA8' }} tickLine={false} />
+                <YAxis tick={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fill: '#9B8E7D' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} width={34} />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const sorted = [...payload].filter(e => e.value != null).sort((a, b) => Number(b.value) - Number(a.value));
+                    return (
+                      <div style={{ background: '#F4EFE2', border: '1px solid #C8BBA8', padding: '8px 12px', fontFamily: "'Lora',serif", fontSize: 10 }}>
+                        <div style={{ fontFamily: "'Libre Baskerville',serif", fontWeight: 700, fontSize: 10, marginBottom: 6 }}>{label}</div>
+                        {sorted.map(entry => (
+                          <div key={String(entry.dataKey)} style={{ color: entry.color, marginBottom: 3 }}>
+                            {entry.name} : {Number(entry.value).toFixed(1)}% of expenditure
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }}
+                />
+                <Legend wrapperStyle={{ fontFamily: "'Lora',serif", fontSize: 9, paddingTop: 12, paddingBottom: 12 }} iconSize={8} />
+                <Line type="monotone" dataKey="interest_pct" name="Interest"                  stroke={T.red}     strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="welfare_pct"  name="Social Welfare"            stroke={T.amber}   strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="capex_pct"    name="Infrastructure & Capital"  stroke={T.green}   strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="defence_pct"  name="Defence"                   stroke="#374151"   strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="gov_pct"      name="Governance & Growth"       stroke="#4338CA"   strokeWidth={2}   dot={{ r: 2.5 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="others_pct"   name="Others"                    stroke={T.muted}   strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} connectNulls={false} />
+                <Line type="monotone" dataKey="pension_pct"  name="Pension"                   stroke="#374151"   strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 3.5 }} strokeDasharray="4 2" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ padding: '8px 14px', background: T.paper2, borderTop: `1px solid ${T.rule}` }}>
+            <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: 10, color: T.muted }}>
+              % of total expenditure for each year. Social Welfare and Infrastructure & Capital are grouped series. "Others" starts FY23 (official residual row).
+            </span>
+          </div>
+        </div>
+        <div style={{ border: `2px solid ${T.ink}`, background: T.paper, marginBottom: 20 }}>
+          <div style={{ background: T.red, color: '#fff', padding: '8px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>EXPENDITURE OF MAJOR ITEMS — REVISED ESTIMATES (₹ CRORE)</span>
+            <button onClick={() => setMiGrouped(x => !x)} style={{ fontSize: 9, fontFamily: 'monospace', background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.5)', padding: '2px 8px', cursor: 'pointer', letterSpacing: 1, fontWeight: 700 }}>
+              {miGrouped ? 'FLAT' : 'GROUP'}
+            </button>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -906,7 +986,46 @@ export default function BudgetView() {
                 </tr>
               </thead>
               <tbody>
-                {MAJOR_ITEMS.map((item, i) => {
+                {miGrouped ? miGroupedRows.map(entry => {
+                  if (entry.t === 'group') return (
+                    <Fragment key={entry.label}>
+                      <tr onClick={entry.toggle} style={{ background: T.paper2, cursor: 'pointer', userSelect: 'none', borderBottom: `1px solid ${T.rule}` }}>
+                        <td style={{ padding: '7px 14px', fontFamily: "'Libre Baskerville',serif", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: entry.color, borderLeft: `4px solid ${entry.color}` }}>
+                          <span style={{ marginRight: 5, fontSize: 8, display: 'inline-block', transition: 'transform 0.2s', transform: entry.open ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                          {entry.label.toUpperCase()}
+                        </td>
+                        {entry.re.map((v, k) => (
+                          <td key={k} className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: T.ink }}>{spendFmt(v, EXP_CLASSIFICATION.reTotals[k])}</td>
+                        ))}
+                        <td className="mono" style={{ padding: '7px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: entry.color }}>
+                          {spendPct ? entry.pct.toFixed(1)+'%' : fmt2(entry.amt)}
+                        </td>
+                      </tr>
+                      {entry.open && entry.items.map((item, j) => (
+                        <tr key={j} style={{ borderBottom: `1px solid ${T.rule}` }}>
+                          <td style={{ padding: '6px 14px 6px 28px', fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{item.label}</td>
+                          {item.re.map((v, k) => (
+                            <td key={k} className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{v > 0 ? spendFmt(v, EXP_CLASSIFICATION.reTotals[k]) : '—'}</td>
+                          ))}
+                          <td className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: item.color }}>
+                            {spendPct ? item.pct.toFixed(1)+'%' : fmt2(item.amt)}
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  );
+                  return (
+                    <tr key={entry.label} style={{ borderBottom: `1px solid ${T.rule}` }}>
+                      <td style={{ padding: '6px 14px', fontFamily: "'Lora',serif", fontSize: 11, color: T.ink }}>{entry.label}</td>
+                      {entry.re.map((v, k) => (
+                        <td key={k} className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 10, color: T.muted }}>{v > 0 ? spendFmt(v, EXP_CLASSIFICATION.reTotals[k]) : '—'}</td>
+                      ))}
+                      <td className="mono" style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: entry.color }}>
+                        {spendPct ? entry.pct.toFixed(1)+'%' : fmt2(entry.amt)}
+                      </td>
+                    </tr>
+                  );
+                }) : MAJOR_ITEMS.map((item, i) => {
                   if (item.kind === 'subsidy') return (
                     <Fragment key="mi-subsidy">
                       <tr style={{ background: T.paper2 }}>
